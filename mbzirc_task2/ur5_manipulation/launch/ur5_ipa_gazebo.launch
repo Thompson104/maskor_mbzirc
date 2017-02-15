@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<launch>
+    <!-- these are the arguments you can pass this launch file, for example paused:=true -->
+  <arg name="paused" default="false"/>
+  <arg name="use_sim_time" default="true"/>
+  <arg name="gui" default="true"/>
+  <arg name="headless" default="false"/>
+  <arg name="debug" default="false"/>
+  <arg name="sim" default="true" />
+  <arg name="config" default="true" />
+
+  <!--/home/harsh/development/ros/ur_ws/src/universal_robot/ur_description/urdf-->
+  <!-- Spawn a robot into Gazebo -->
+  <param name="robot_description" command="$(find xacro)/xacro.py $(find ur5_collision)/urdf/table_scene_gazebo.urdf.xacro" />
+
+  <group if="$(arg sim)">
+    <node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model" args="-param robot_description -urdf -model ur5_ipa -J elbow_joint 1.57" />
+
+    <!-- We resume the logic in empty_world.launch -->
+    <include file="$(find gazebo_ros)/launch/empty_world.launch">
+      <arg name="debug" value="$(arg debug)" />
+      <arg name="gui" value="$(arg gui)" />
+      <arg name="paused" value="$(arg paused)"/>
+      <arg name="use_sim_time" value="$(arg use_sim_time)"/>
+      <arg name="headless" value="$(arg headless)"/>
+    </include>
+  </group>
+
+  <remap unless="$(arg sim)" from="/follow_joint_trajectory" to="/arm_controller/follow_joint_trajectory"/>
+
+  <!-- Load UR5 controllers -->
+  <rosparam command="load" file="$(find ur5_collision)/config/control_ur5_ipa.yaml" />
+  <node name="arm_controller_spawner" pkg="controller_manager" type="spawner" args="arm_controller  arm_joint_publisher --shutdown-timeout 3"/>
+
+  <include file="$(find ur5_collision)/launch/ur5_moveit_planning_execution.launch" >
+    <arg name="sim" value="$(arg sim)" />
+    <arg name="limited" default="false"/>
+  </include>
+
+  <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
+
+  <include file="$(find ur5_collision)/launch/moveit_rviz.launch" >
+    <arg name="config" value="$(arg config)" />
+  </include>
+
+
+ <!--<include file="$(find ur5_collision)/launch/spawn_marker0.launch" />
+  <include file="$(find ur5_collision)/launch/spawn_marker2.launch" /> -->
+
+</launch>
+ 

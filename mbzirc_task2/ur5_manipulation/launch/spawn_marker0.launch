@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+
+<launch>
+  <!-- Convert xacro and put on parameter server -->
+  <param name="marker0_description" command="$(find xacro)/xacro.py $(find ur5_collision)/urdf/marker0.urdf.xacro" />
+
+  <!-- Spawn marker into Gazebo -->
+  <node name="spawn_marker0" pkg="gazebo_ros" type="spawn_model" args="-param marker0_description -urdf -model marker0 -x -0.40 -y -0.15 -z 0.9" />
+</launch>

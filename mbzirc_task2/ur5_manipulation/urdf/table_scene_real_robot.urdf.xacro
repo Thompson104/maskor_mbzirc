@@ -1,0 +1,55 @@
+<?xml version="1.0"?>
+<robot name="ur5" xmlns:xacro="http://ros.org/wiki/xacro">
+  <xacro:include filename="$(find ur5_collision)/urdf/table_ipa.urdf.xacro" />
+  <xacro:include filename="$(find ur_description)/urdf/ur5.urdf.xacro" />
+  <xacro:include filename="$(find ur_description)/urdf/common.gazebo.xacro" /> 
+
+  <xacro:ur5_robot prefix="" joint_limited="true"/>
+  <xacro:table_ipa />
+
+  <link name="world" />
+
+  <joint name="world_joint" type="fixed">
+    <parent link="world" />
+    <child link = "table_link" />
+    <origin xyz="-0.082 0.0 0.001" rpy="0.0 -1.57 0.0" />
+  </joint>
+
+  <joint name="robot_joint" type="fixed">
+    <parent link="table_link" />
+    <child link = "base_link" />
+    <origin xyz="0.845 0.05 -0.08" rpy="1.57 -3.14 1.57" />
+  </joint>
+
+  <!-- #### Camera #### -->
+  <link name="xtion_link">
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+	<!--<cylinder length="0.01" radius="0.1"/>-->
+	<box size=".05 .05 .2" />
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <!--<cylinder length="0.01" radius="0.1"/>-->
+	<box size=".05 .05 .2" />
+      </geometry>
+      <material name="Black">
+       <color rgba=".0 .0 .0 1.0"/>
+      </material>
+    </visual>
+    <inertial>
+      <mass value="1e-5" />
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6" />
+    </inertial>
+  </link>
+  <joint name="xtion_joint" type="fixed">
+    <parent link="table_link" />
+    <child link = "xtion_link" />
+    <origin xyz="2.6 0.0 -0.08" rpy="0.0 3.14 0.0" />
+  </joint>
+
+</robot>

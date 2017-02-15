@@ -1,0 +1,9 @@
+<launch>
+	<include file="$(find sick_tim)/launch/sick_tim571_2050101.launch" />
+	<include file="$(find avt_vimba_camera)/launch/mono_camera.launch" />
+
+	<node name="rviz" pkg="rviz" type="rviz" />
+
+	<node pkg="tf" type="static_transform_publisher" name="laser_link" args="0 0 0.46 0 0 0 world laser_mount_link 100"/>
+    <node pkg="tf" type="static_transform_publisher" name="camera_link" args="-0.48 -0.35 0.37 -1.57 0 -1.57 laser camera 100"/>
+</launch>

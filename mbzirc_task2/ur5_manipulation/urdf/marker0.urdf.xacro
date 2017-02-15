@@ -1,0 +1,43 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:property name="box_origin">
+	<origin xyz="0 0 0" />
+  </xacro:property>
+
+  <xacro:macro name="box_inertial" params="x y z mass">
+    <inertial>
+      <mass value="${mass}" />
+      <xacro:insert_block name="box_origin" />
+      <inertia ixx="${0.0833333 * mass * (y*y + z*z)}" ixy="0.0" ixz="0.0" 
+        iyy="${0.0833333 * mass * (x*x + z*z)}" iyz="0.0" 
+        izz="${0.0833333 * mass * (x*x + y*y)}" />
+    </inertial>
+  </xacro:macro>
+
+  <link name="marker0">
+    <xacro:box_inertial x="0.2" y="0.2" z="0.01" mass="1.0" />
+    <visual>
+      <xacro:insert_block name="box_origin" />
+      <geometry>
+        <box size="0.2 0.2 0.01" />
+      </geometry>
+    </visual>
+    <collision>
+      <xacro:insert_block name="box_origin" />
+      <geometry>
+        <box size="0.2 0.2 0.01" />
+      </geometry>
+    </collision>
+  </link>
+  <gazebo reference="marker0">
+    <material>Gazebo/Marker0</material>
+    <!--<material>
+     <script>
+        <name>Marker1</name>
+        <uri>model://ar_markers/materials/scripts</uri>
+        <uri>model://ar_markers/materials/textures</uri>
+      </script>
+    </material>-->
+  </gazebo>
+</robot>
+

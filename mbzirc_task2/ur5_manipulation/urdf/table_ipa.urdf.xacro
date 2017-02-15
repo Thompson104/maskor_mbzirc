@@ -1,0 +1,44 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <link name="table_link">    
+    <inertial>
+      <mass value="1.0" />
+      <origin xyz="0 0 0"  rpy="0 0 0.0" />
+      <inertia ixx="0.001" ixy="0"  ixz="0"
+               iyy="0.001" iyz="0"
+               izz="0.001"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0.0" />
+      <geometry>
+        <mesh filename="package://ur5_collision/meshes/RoboterzelleSmaller.stl" scale="0.001 0.001 0.001" />
+ 
+      </geometry>
+      <material name="Grey">
+       <color rgba=".5 .5 .5 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0.42 -0.05 -0.07" rpy="0 0 0" />
+      <geometry>
+        <box size="0.84 1 1.2" />
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="1.75 0.45 -0.07" rpy="0 1.57 0" />
+      <geometry>
+        <cylinder radius ="0.05" length="1.8"/>
+      </geometry>
+    </collision>
+  </link>
+  <gazebo reference="table_link">
+    <material>Gazebo/Gray</material>-->
+    <!--<script>
+      <uri>package://ur5_pnp/materials/scripts</uri>
+      <uri>package://ur5_pnp/materials/textures</uri>
+      <name>Gazebo/Marker1</name>
+    </script>-->
+  </gazebo>
+
+</robot>

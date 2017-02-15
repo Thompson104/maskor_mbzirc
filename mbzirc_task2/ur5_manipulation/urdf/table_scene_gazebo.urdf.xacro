@@ -1,0 +1,126 @@
+<?xml version="1.0"?>
+<robot name="ur5" xmlns:xacro="http://ros.org/wiki/xacro">
+  <xacro:include filename="$(find ur5_collision)/urdf/table_ipa.urdf.xacro" />
+  <xacro:include filename="$(find ur_description)/urdf/ur5.urdf.xacro" />
+
+
+  <xacro:include filename="$(find ur_description)/urdf/common.gazebo.xacro" /> 
+
+  <xacro:ur5_robot prefix="" joint_limited="true"/>
+  <xacro:table_ipa />
+
+  <link name="world" />
+
+  <joint name="world_joint" type="fixed">
+    <parent link="world" />
+    <child link = "table_link" />
+    <origin xyz="-0.082 0.0 0.001" rpy="0.0 -1.57 0.0" />
+  </joint>
+
+  <joint name="robot_joint" type="fixed">
+    <parent link="table_link" />
+    <child link = "base_link" />
+    <origin xyz="0.845 0.05 -0.08" rpy="1.57 -3.14 1.57" />
+  </joint>
+
+  <!-- Camera link-->
+  <link name="xtion_link">
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+	<!--<cylinder length="0.01" radius="0.1"/>-->
+	<box size=".05 .05 .2" />
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <!--<cylinder length="0.01" radius="0.1"/>-->
+	<box size=".05 .05 .2" />
+      </geometry>
+      <material name="Black">
+       <color rgba=".0 .0 .0 1.0"/>
+      </material>
+    </visual>
+    <inertial>
+      <mass value="1e-5" />
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6" />
+    </inertial>
+  </link>
+  <joint name="xtion_joint" type="fixed">
+    <parent link="table_link" />
+    <child link = "xtion_link" />
+    <origin xyz="2.6 0.0 -0.08" rpy="0.0 3.14 0.0" />
+  </joint>
+
+  <!--
+  <joint name="marker1_joint" type="fixed">
+    <parent link="table_link" />
+    <child link = "marker1" />
+    <origin xyz="0.845 -0.3 0.3" rpy="0.0 1.57 0.0" />
+  </joint>
+
+  <joint name="marker0_joint" type="fixed">
+    <parent link="table_link" />
+    <child link = "marker0" />
+    <origin xyz="0.845 -0.14 -0.4" rpy="0.0 1.57 0.0" />
+  </joint>
+ -->
+
+  <!-- generate an optical frame 
+      http://www.ros.org/reps/rep-0103.html#suffix-frames
+      so that ros and opencv can operate on the camera frame correctly 
+      -->
+  <joint name="xtion_optical_joint" type="fixed">
+    <!-- these values have to be these values otherwise the gazebo camera
+        image won't be aligned properly with the frame it is supposedly
+        originating from -->
+    <origin xyz="0 0 0" rpy="${-pi/2} 0 ${-pi/2}"/>
+    <parent link="xtion_link"/>
+    <child link="xtion_link_optical"/>
+  </joint>
+
+  <link name="xtion_link_optical">
+  </link>
+
+
+  <gazebo reference="xtion_link">
+    <sensor type="depth" name="xtion">
+        <always_on>true</always_on>
+        <update_rate>30.0</update_rate>
+        <camera>
+          <horizontal_fov>1.0471975511965976</horizontal_fov>
+          <image>
+            <format>R8G8B8</format>
+            <width>640</width>
+            <height>480</height>
+          </image>
+          <clip>
+            <near>0.05</near>
+            <far>8.0</far>
+          </clip>
+        </camera>
+        <plugin name="kinect_camera_controller" filename="libgazebo_ros_openni_kinect.so">
+          <cameraName>camera</cameraName>
+          <alwaysOn>true</alwaysOn>
+          <updateRate>30.0</updateRate>
+          <imageTopicName>rgb/image_raw</imageTopicName>
+          <depthImageTopicName>depth/image_raw</depthImageTopicName>
+          <pointCloudTopicName>depth/points</pointCloudTopicName>
+          <cameraInfoTopicName>rgb/camera_info</cameraInfoTopicName>
+          <depthImageCameraInfoTopicName>depth/camera_info</depthImageCameraInfoTopicName>
+          <frameName>xtion_link_optical</frameName>
+          <baseline>0.1</baseline>
+          <distortion_k1>0.0</distortion_k1>
+          <distortion_k2>0.0</distortion_k2>
+          <distortion_k3>0.0</distortion_k3>
+          <distortion_t1>0.0</distortion_t1>
+          <distortion_t2>0.0</distortion_t2>
+          <pointCloudCutoff>0.5</pointCloudCutoff>
+          <pointCloudCutoffMax>5.0</pointCloudCutoffMax>
+        </plugin>
+	<visualize>true</visualize>
+      </sensor>
+  </gazebo>
+</robot>
