@@ -1,0 +1,5 @@
+string rectImageTopic
+geometry_msgs/Transform origin
+---
+sensor_msgs/Image imageRoi
+

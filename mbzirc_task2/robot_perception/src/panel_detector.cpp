@@ -147,6 +147,8 @@ private:
     ros::NodeHandle nodeHandle;
     ros::ServiceServer service;
 
+    laser_geometry::LaserProjection projector_;
+
 };
 
 int main (int argc, char** argv) {
