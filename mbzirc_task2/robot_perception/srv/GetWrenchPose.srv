@@ -1,0 +1,5 @@
+string wrenchNum
+sensor_msgs/Image imageRoi
+---
+geometry_msgs/Pose wrenchPose
+

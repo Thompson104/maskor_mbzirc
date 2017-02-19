@@ -15,6 +15,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   std_msgs
   tf
+  message_generation
 )
 
 ## System dependencies are found with CMake's conventions
@@ -58,11 +59,12 @@ find_package(catkin REQUIRED COMPONENTS
 # )
 
 ## Generate services in the 'srv' folder
-# add_service_files(
-#   FILES
-#   Service1.srv
-#   Service2.srv
-# )
+add_service_files(
+  FILES
+  GetPanelOrigin.srv
+  GetWrenchROI.srv
+  GetWrenchPose.srv
+)
 
 ## Generate actions in the 'action' folder
 # add_action_files(
@@ -72,10 +74,11 @@ find_package(catkin REQUIRED COMPONENTS
 # )
 
 ## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   sensor_msgs
-# )
+generate_messages(
+  DEPENDENCIES
+  sensor_msgs
+  geometry_msgs
+)
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -137,11 +140,13 @@ include_directories(
 ## Declare a C++ executable
 add_executable(panel_detector src/panel_detector.cpp)
 add_executable(panel_roi_detector src/panel_roi_detector.cpp)
+add_executable(wrench_detector src/wrench_detector.cpp)
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
 add_dependencies(panel_detector ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(panel_roi_detector ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(wrench_detector ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(panel_detector
@@ -149,6 +154,10 @@ target_link_libraries(panel_detector
 )
 
 target_link_libraries(panel_roi_detector
+  ${catkin_LIBRARIES}
+)
+
+target_link_libraries(wrench_detector
   ${catkin_LIBRARIES}
 )
 

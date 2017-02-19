@@ -188,7 +188,7 @@ private:
 
 int main(int argc, char** argv)
 {
-    ros::init(argc, argv, "image_converter");
+    ros::init(argc, argv, "panel_roi_detector");
     ros::NodeHandle nh;
     WrenchROIDetector roiDetector(nh);
 

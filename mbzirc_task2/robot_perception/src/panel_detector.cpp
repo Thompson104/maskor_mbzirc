@@ -153,7 +153,7 @@ private:
 
 int main (int argc, char** argv) {
     // Initialize ROS
-    ros::init (argc, argv, "my_pcl_tutorial");
+    ros::init (argc, argv, "panel_detector");
     ros::NodeHandle nh;
 
     PanelDetector panelDetector(nh);
@@ -170,4 +170,5 @@ int main (int argc, char** argv) {
 
     // Spin
     ros::spin ();
+    return 0;
 }
