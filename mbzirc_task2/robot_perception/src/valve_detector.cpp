@@ -144,6 +144,5 @@ int main(int argc, char **argv) {
     ValveDetector valveDetector(nh);
 
     ros::spin();
-
     return 0;
 }

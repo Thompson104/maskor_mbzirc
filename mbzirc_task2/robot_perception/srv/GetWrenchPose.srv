@@ -1,5 +1,6 @@
-string wrenchNum
-sensor_msgs/Image imageRoi
+std_msgs/UInt8 wrenchNum
+string imageTopic
+geometry_msgs/Transform origin
 ---
 geometry_msgs/Pose wrenchPose
 
