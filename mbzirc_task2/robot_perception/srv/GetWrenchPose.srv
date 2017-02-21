@@ -1,6 +1,6 @@
 std_msgs/UInt8 wrenchNum
 string imageTopic
-geometry_msgs/Transform origin
+string scanTopic
 ---
 geometry_msgs/Pose wrenchPose
 
