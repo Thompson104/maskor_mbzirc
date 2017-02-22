@@ -1,0 +1,8 @@
+#goal definition
+geometry_msgs/Pose endPose
+---
+#result definition
+int8 success
+---
+#feedback
+geometry_msgs/Pose currentPose

@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package>
-  <name>ur5_collision</name>
+  <name>ur5_manipulation</name>
   <version>0.0.0</version>
-  <description>The ur5_collision package</description>
+  <description>The ur5_manipulation package</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag --> 
   <!-- Example:  -->
@@ -47,6 +47,7 @@
   <build_depend>ur5_moveit_config</build_depend>
   <build_depend>ur_description</build_depend>
   <build_depend>ur_modern_driver</build_depend>
+  <build_depend>actionlib_msgs</build_depend>
   <run_depend>roscpp</run_depend>
   <run_depend>moveit_msgs</run_depend>
   <run_depend>moveit_ros_move_group</run_depend>
@@ -54,7 +55,7 @@
   <run_depend>ur5_moveit_config</run_depend>
   <run_depend>ur_description</run_depend>
   <run_depend>ur_modern_driver</run_depend>
-
+  <run_depend>actionlib_msgs</run_depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>
