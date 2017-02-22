@@ -1,0 +1,6 @@
+std_msgs/UInt8 wrenchNum
+string imageTopic
+string scanTopic
+---
+geometry_msgs/Pose wrenchPose
+

@@ -51,6 +51,10 @@
   <build_depend>image_transport</build_depend>
   <build_depend>std_msgs</build_depend>
   <build_depend>tf</build_depend>
+<<<<<<< HEAD
+=======
+  <build_depend>message_generation</build_depend>
+>>>>>>> 85489cfc9a30c01036f1b313ba008aff4baa2323
   <run_depend>message_runtime</run_depend>
   <run_depend>libpcl-all</run_depend>
   <run_depend>pcl_conversions</run_depend>

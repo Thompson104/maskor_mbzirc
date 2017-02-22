@@ -63,6 +63,8 @@ add_service_files(
   FILES
   GetPanelOrigin.srv
   GetWrenchROI.srv
+  GetWrenchPose.srv
+  GetValvePose.srv
 )
 
 ## Generate actions in the 'action' folder
@@ -75,7 +77,9 @@ add_service_files(
 ## Generate added messages and services with any dependencies listed here
 generate_messages(
   DEPENDENCIES
+  std_msgs
   sensor_msgs
+  geometry_msgs
 )
 
 ################################################
@@ -138,11 +142,15 @@ include_directories(
 ## Declare a C++ executable
 add_executable(panel_detector src/panel_detector.cpp)
 add_executable(panel_roi_detector src/panel_roi_detector.cpp)
+add_executable(wrench_detector src/wrench_detector.cpp)
+add_executable(valve_detector src/valve_detector.cpp)
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
 add_dependencies(panel_detector ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(panel_roi_detector ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(wrench_detector ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(valve_detector ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(panel_detector
@@ -150,6 +158,14 @@ target_link_libraries(panel_detector
 )
 
 target_link_libraries(panel_roi_detector
+  ${catkin_LIBRARIES}
+)
+
+target_link_libraries(wrench_detector
+  ${catkin_LIBRARIES}
+)
+
+target_link_libraries(valve_detector
   ${catkin_LIBRARIES}
 )
 
