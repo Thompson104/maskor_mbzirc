@@ -9,7 +9,7 @@
   <remap if="$(arg sim)" from="/follow_joint_trajectory" to="/arm_controller/follow_joint_trajectory"/>
   
   <!-- Launch moveit (Changed) -->
-  <include file="$(find ur5_collision)/launch/move_group.launch">
+  <include file="$(find ur5_manipulation)/launch/move_group.launch">
     <arg name="limited" default="$(arg limited)"/>
     <arg name="debug" default="$(arg debug)" />
   </include>

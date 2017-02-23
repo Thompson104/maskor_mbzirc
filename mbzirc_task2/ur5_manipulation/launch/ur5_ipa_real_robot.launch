@@ -1,15 +1,6 @@
 <?xml version="1.0"?>
-
-<launch>
-  
-  <include file="$(find ur5_collision)/launch/ur5_bringup.launch"/>
-
-  <include file="$(find ur5_collision)/launch/ur5_moveit_planning_execution.launch" />
-
-  <include file="$(find ur5_collision)/launch/moveit_rviz.launch" />
-
-  <include file="$(find ur5_collision)/launch/xtion.launch" />
-
-
-
+<launch> 
+  <include file="$(find ur5_manipulation)/launch/ur5_bringup.launch"/>
+  <include file="$(find ur5_manipulation)/launch/ur5_moveit_planning_execution.launch" />
+  <include file="$(find ur5_manipulation)/launch/moveit_rviz.launch" />
 </launch>

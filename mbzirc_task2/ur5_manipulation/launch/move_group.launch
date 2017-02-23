@@ -3,7 +3,7 @@
 <launch>
   <arg name="limited" default="false"/>
 
-  <include file="$(find ur5_collision)/launch/planning_context.launch">
+  <include file="$(find ur5_manipulation)/launch/planning_context.launch">
     <arg name="limited" value="$(arg limited)" />
   </include>
 
@@ -37,7 +37,7 @@
   </include>
 
   <!-- Sensors Functionality (Changed) -->
-  <include ns="move_group" file="$(find ur5_collision)/launch/sensor_manager.launch.xml" if="$(arg allow_trajectory_execution)">
+  <include ns="move_group" file="$(find ur5_moveit_config)/launch/sensor_manager.launch.xml" if="$(arg allow_trajectory_execution)">
     <arg name="moveit_sensor_manager" value="ur5" /> 
   </include>
 

@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-
-<launch>
-  <!-- Convert xacro and put on parameter server -->
-  <param name="collision_object_description" command="$(find xacro)/xacro.py $(find ur5_collision)/urdf/collision.urdf.xacro" />
-
-  <!-- Spawn a robot into Gazebo -->
-  <node name="spawn_collision" pkg="gazebo_ros" type="spawn_model" args="-param collision_object_description -urdf -model collision_object -y -0.4 -z 0.9" />
-</launch>

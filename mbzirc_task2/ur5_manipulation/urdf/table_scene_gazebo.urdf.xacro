@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <robot name="ur5" xmlns:xacro="http://ros.org/wiki/xacro">
-  <xacro:include filename="$(find ur5_collision)/urdf/table_ipa.urdf.xacro" />
+  <xacro:include filename="$(find ur5_manipulation)/urdf/table_ipa.urdf.xacro" />
   <xacro:include filename="$(find ur_description)/urdf/ur5.urdf.xacro" />
 
 

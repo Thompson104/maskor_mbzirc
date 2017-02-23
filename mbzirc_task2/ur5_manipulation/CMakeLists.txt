@@ -107,7 +107,7 @@ generate_messages(
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
   INCLUDE_DIRS include
-  LIBRARIES ur5_collision
+  LIBRARIES ur5_manipulation
   CATKIN_DEPENDS roscpp ur5_moveit_config ur_description ur_modern_driver actionlib_msgs
   DEPENDS system_lib
 )
@@ -124,24 +124,30 @@ include_directories(
 )
 
 ## Declare a C++ library
-# add_library(ur5_collision
-#   src/${PROJECT_NAME}/ur5_collision.cpp
+# add_library(ur5_manipulation
+#   src/${PROJECT_NAME}/ur5_manipulation.cpp
 # )
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
 ## either from message generation or dynamic reconfigure
-# add_dependencies(ur5_collision ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+# add_dependencies(ur5_manipulation ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Declare a C++ executable
 add_executable(ur5_move_node src/ur5_move.cpp)
+add_executable(ur5_client src/ur5_client.cpp)
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
- add_dependencies(ur5_move_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(ur5_move_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(ur5_client ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
  target_link_libraries(ur5_move_node
+   ${catkin_LIBRARIES}
+ )
+
+ target_link_libraries(ur5_client
    ${catkin_LIBRARIES}
  )
 
@@ -160,7 +166,7 @@ add_executable(ur5_move_node src/ur5_move.cpp)
 # )
 
 ## Mark executables and/or libraries for installation
-# install(TARGETS ur5_collision ur5_collision_node
+# install(TARGETS ur5_manipulation ur5_manipulation_node
 #   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
 #   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
 #   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
@@ -185,7 +191,7 @@ add_executable(ur5_move_node src/ur5_move.cpp)
 #############
 
 ## Add gtest based cpp test target and link libraries
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_ur5_collision.cpp)
+# catkin_add_gtest(${PROJECT_NAME}-test test/test_ur5_manipulation.cpp)
 # if(TARGET ${PROJECT_NAME}-test)
 #   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
 # endif()

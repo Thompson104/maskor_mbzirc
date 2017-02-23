@@ -28,7 +28,12 @@ public:
         server_p2p(nh, move_p2p_action_name, boost::bind(&UR5_Interface::execute_p2p, this, _1), false),
         server_angle(nh, move_angle_action_name, boost::bind(&UR5_Interface::execute_angle, this, _1), false){
 
-        group = new MoveGroup("manipulator");
+        server_line.start();
+        server_p2p.start();
+        server_angle.start();
+
+        std::cout << "move_p2p is active? : " << server_p2p.isActive() << std::endl;
+        group = new MoveGroup("ur5_arm");
         group->setPlanningTime(30.0);
         group->setPlannerId("RRTConnectkConfigDefault");
 
@@ -48,22 +53,24 @@ public:
 
     void execute_line(const ur5_manipulation::MoveLineGoalConstPtr &goal) {
         std_msgs::Int8 status;
-        geometry_msgs::Pose endPose = goal->endPose;
+        //geometry_msgs::Pose endPose = goal->endPose;
 
         std::vector<geometry_msgs::Pose> waypoints;
         geometry_msgs::Pose startPose = group->getCurrentPose().pose;
         waypoints.push_back(startPose);
+        geometry_msgs::Pose endPose = startPose;
+        endPose.position.z -= 0.05;
         waypoints.push_back(endPose);
 
         if(executeTrajectory(waypoints)) {
             //TODO: do the feedback loop here
             std::cout << "move complete!" << std::endl;
 
-            status.data = res_line.status.SUCCEEDED;
+            //status.data = res_line.status.SUCCEEDED;
             //res_line.result.success = status;
             //server_line.setSucceeded(res_line);
         } else {
-            status.data = res_line.status.REJECTED;
+            //status.data = res_line.status.REJECTED;
             //res_line.result.success = status;
             //server_line.setAborted(res_line);
         }
@@ -82,11 +89,11 @@ public:
         if(success) {
             //TODO: do the feedback loop here, but not absolutely necessary
             group->execute(traj_plan);
-            status.data = res_p2p.status.SUCCEEDED;
+            //status.data = res_p2p.status.SUCCEEDED;
             //res_p2p.result.success = status;
-            //server_p2p.setSucceeded(res_p2p);
+            server_p2p.setSucceeded(res_p2p);
         } else {
-            status.data = res_p2p.status.REJECTED;
+            //status.data = res_p2p.status.REJECTED;
             //res_p2p.result.success = status;
             //server_p2p.setAborted(res_p2p);
         }
@@ -142,15 +149,15 @@ private:
 
     actionlib::SimpleActionServer<ur5_manipulation::MoveLineAction> server_line; // NodeHandle instance must be created before this line. Otherwise strange error occurs.
     ur5_manipulation::MoveLineActionFeedback fb_line;
-    ur5_manipulation::MoveLineActionResult res_line;
+    ur5_manipulation::MoveLineResult res_line;
 
     actionlib::SimpleActionServer<ur5_manipulation::MoveP2PAction> server_p2p;
     ur5_manipulation::MoveP2PActionFeedback fb_p2p;
-    ur5_manipulation::MoveP2PActionResult res_p2p;
+    ur5_manipulation::MoveP2PResult res_p2p;
 
     actionlib::SimpleActionServer<ur5_manipulation::MoveAngleAction> server_angle;
     ur5_manipulation::MoveAngleActionFeedback fb_angle;
-    ur5_manipulation::MoveAngleActionResult res_angle;
+    ur5_manipulation::MoveAngleResult res_angle;
 
     MoveGroup *group;
     TrajClient* traj_client;
@@ -161,7 +168,7 @@ private:
         moveit_msgs::RobotTrajectory trajectory;
 
         double fraction = group->computeCartesianPath(waypoints,
-                                                      0.0001,  // eef_step
+                                                      0.01,  // eef_step
                                                       0.0,   // jump_threshold
                                                       trajectory);
         ROS_INFO("Visualizing plan (cartesian path) (%.2f%% acheived)",
@@ -169,7 +176,7 @@ private:
 
         // The trajectory needs to be modified so it will include velocities as well.
         // First to create a RobotTrajectory object
-        robot_trajectory::RobotTrajectory rt(group->getCurrentState()->getRobotModel(), "manipulator");
+        robot_trajectory::RobotTrajectory rt(group->getCurrentState()->getRobotModel(), "ur5_arm");
 
         // Second get a RobotTrajectory from trajectory
         rt.setRobotTrajectoryMsg(*group->getCurrentState(), trajectory);
@@ -177,7 +184,7 @@ private:
         // Thrid create a IterativeParabolicTimeParameterization object
         trajectory_processing::IterativeParabolicTimeParameterization iptp;
         // Fourth compute computeTimeStamps
-        bool success = iptp.computeTimeStamps(rt);
+        bool success = iptp.computeTimeStamps(rt, 0.01);
         ROS_INFO("Computed time stamp %s",success?"SUCCEDED":"FAILED");
         // Get RobotTrajectory_msg from RobotTrajectory
         rt.getRobotTrajectoryMsg(trajectory);
@@ -197,10 +204,8 @@ int main (int argc, char **argv) {
     ros::init(argc, argv, "ur5_move");
     ros::NodeHandle nh;
 
-
-    ros::AsyncSpinner spinner(1);
-    spinner.start();
-
     UR5_Interface ur5_interface(nh);
-}
 
+    ros::spin();
+    return 0;
+}
