@@ -1,4 +1,4 @@
-std_msgs/UInt8 wrenchNum
+int8 wrenchNum
 string imageTopic
 string scanTopic
 ---

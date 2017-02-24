@@ -38,12 +38,15 @@
 #include <pcl/segmentation/sac_segmentation.h>
 #include <pcl/segmentation/extract_clusters.h>
 #include <pcl/filters/statistical_outlier_removal.h>
+#include <image_geometry/pinhole_camera_model.h>
 
 #include <visualization_msgs/Marker.h>
 #include <tf/transform_broadcaster.h>
 
 #include <robot_perception/GetWrenchPose.h>
 #include <robot_perception/GetWrenchROI.h>
+
+cv::RNG rng(12345);
 
 bool sortByHeigth(const cv::RotatedRect &r1, const cv::RotatedRect &r2) {
     return r1.boundingRect().height > r2.boundingRect().height;
@@ -186,8 +189,8 @@ public:
 
     WrenchDetector(ros::NodeHandle nh) : nodeHandle(nh), canny_max(255) {
         canny_low = 0;
-        canny_up = 100;
-        dilation_size = 1;
+        canny_up = 30;
+        dilation_size = 30;
         num_wrenches = 6;
         roi_height = 400;
 
@@ -199,7 +202,7 @@ public:
         wrench_lengths[4] = 270;
         wrench_lengths[5] = 290;
 
-        aspect_ratio = 15;
+        aspect_ratio = 4;
 
         initCameraParams();
         panelDetector = new PanelDetector(nodeHandle);
@@ -225,6 +228,8 @@ private:
     //Camera params
     cv::Mat intrisicMat;
     cv::Mat distCoeffs;
+    cv::Mat tVec;
+    tf::Matrix3x3 rot;
 
     tf::TransformListener tf_listener;
 
@@ -253,73 +258,107 @@ private:
         }
 
         cv::Mat image = getWrenchROI(transform, req.imageTopic);
+        cv::imwrite("roi.png", image);
 
         if(image.rows == 0 || image.cols == 0){
             ROS_INFO("ERROR : Wrench ROI is does not lie in the image");
             return false;
         }
 
-        //std::cout << "image roi size : " << image.size() << std::endl;
+        std::vector<cv::RotatedRect> wrenches = processImage(image, req.wrenchNum);
+        if(wrenches.size() != num_wrenches) {
+            ROS_INFO("ERROR : Wrenches not detected");
+            return false;
+        }
 
-        cv::Mat edge;
-        cv::Canny(image, edge, canny_low, canny_up);
+        //mark this wrench in the image probably?
+        res.wrenchPose = getRequestedWrenchPose(wrenches, req.wrenchNum);
+        return true;
+    }
+
+    std::vector<cv::RotatedRect> processImage(cv::Mat img, int num) {
+        cv::Mat edge, imgLaplacian, drawing;
+        drawing = img.clone();
+
+        std::vector<cv::RotatedRect> wrenches;
+        std::vector<std::vector<cv::Point> > contours;
+        std::vector<cv::Vec4i> hierarchy;
+
+        cv::Mat kernel = (cv::Mat_<float>(3,3) <<
+                          1, 0, 1,
+                          1, -6, 1,
+                          1, 0, 1); // an approximation of second derivative, a quite strong kernel
+        // do the laplacian filtering as it is
+
+        cv::Mat sharp = img; // copy source image to another temporary one
+        cv::filter2D(sharp, imgLaplacian, CV_32F, kernel);
+        img.convertTo(sharp, CV_32F);
+        cv::Mat imgResult = sharp - imgLaplacian;
+        // convert back to 8bits gray scale
+        imgResult.convertTo(imgResult, CV_8UC3);
+        imgLaplacian.convertTo(imgLaplacian, CV_8UC3);
+        // imshow( "Laplace Filtered Image", imgLaplacian );
+
+        cv::namedWindow("sharp", CV_WINDOW_NORMAL);
+        cv::imshow( "sharp", imgResult );
+        img = imgResult; // copy back
+        // Create binary image from source image
+        cv::cvtColor(img, img, CV_BGR2GRAY);
+
+        cv::GaussianBlur( img, edge, cv::Size(15, 15), 0, 0 );
+        cv::Canny(edge, edge, canny_low, canny_up);
+
         cv::Mat element = cv::getStructuringElement(cv::MORPH_RECT,
                                                     cv::Size( 2*dilation_size + 1, 2*dilation_size+1 ),
                                                     cv::Point( dilation_size, dilation_size ) );
         /// Apply the dilation operation
-        cv::dilate(edge, edge, element );
-        return true;
+        cv::morphologyEx(edge, edge, cv::MORPH_CLOSE, element );
+        cv::namedWindow("Canny", CV_WINDOW_NORMAL);
+        cv::imshow("Canny", edge);
 
-        std::vector<std::vector<cv::Point> > contours;
-        std::vector<cv::Vec4i> hierarchy;
-
-        /// Find contours
+        // Find contours
         cv::findContours( edge, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, cv::Point(0, 0) );
 
-        /// Find the rotated rectangles and ellipses for each contour
-        std::vector<cv::RotatedRect> minRect( contours.size() );
-        std::vector<cv::RotatedRect> minEllipse( contours.size() );
+        // Find the rotated rectangles for valid contours
         for( int i = 0; i < contours.size(); i++ ) {
-            minRect[i] = cv::minAreaRect( cv::Mat(contours[i]) );
-            if( contours[i].size() > 50 ) {
-                minEllipse[i] = cv::fitEllipse( cv::Mat(contours[i]) );
+            cv::RotatedRect r = cv::minAreaRect( cv::Mat(contours[i]) );
+            if(isRectValid(r, contours[i])) {
+                cv::Point2f rect_points[4];
+                r.points( rect_points );
+
+                cv::Scalar color = cv::Scalar(255, 0, 0);
+                for( int j = 0; j < 4; j++ ) {
+                    line( drawing, rect_points[j], rect_points[(j+1)%4], color, 14, 8 );
+                }
+
+                wrenches.push_back(r);
             }
         }
 
-        //Draw contours + rotated rects + ellipses
-        cv::Mat drawing = image.clone();
-        cv::cvtColor(drawing, drawing, CV_GRAY2BGR);
+        //rest of the part to delete!
 
-        cv::RNG rng(12345);
-        std::vector<cv::RotatedRect> wrenches;
-        for( int i = 0; i< contours.size(); i++ ) {
-            cv::Scalar color = cv::Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
-            // contour
-            cv::drawContours( drawing, contours, i, color, 1, 8, std::vector<cv::Vec4i>(), 0, cv::Point() );
-            // ellipse
-            cv::ellipse( drawing, minEllipse[i], color, 2, 8 );
-            cv::RotatedRect r = minEllipse[i];
+        std::sort(wrenches.begin(), wrenches.end(), sortByHeigth);
 
-            if(!isRectValid(r))
-                continue;
+        cv::RotatedRect rSel = wrenches[num - 1];
+        cv::Point2f rect_points[4];
+        rSel.points( rect_points );
 
-            wrenches.push_back(r);
+        cv::Scalar color = cv::Scalar(0, 255, 0);
+        for( int j = 0; j < 4; j++ ) {
+            line( drawing, rect_points[j], rect_points[(j+1)%4], color, 14, 8 );
         }
 
-        if(wrenches.size() != num_wrenches)
-            return false;
+        cv::namedWindow("contours", CV_WINDOW_NORMAL);
+        imshow("contours", drawing);
 
-        //mark this wrench in the image probably?
-        res.wrenchPose = getRequestedWrenchPose(wrenches, req.wrenchNum);
-
-        cv::imshow("contours", drawing);
-        return true;
+        cv::waitKey(0);
+        return wrenches;
     }
 
     cv::Mat getWrenchROI(geometry_msgs::Transform msgTransform, std::string imageTopic) {
 
         tf::StampedTransform transform = getCameraTransform();
-        tf::Matrix3x3 rot(transform.getRotation());
+        rot = tf::Matrix3x3(transform.getRotation());
         tfScalar r, p, y;
         rot.getRPY(r, p, y);
 
@@ -328,7 +367,7 @@ private:
         rVec.at<double>(1) = p;
         rVec.at<double>(2) = 0;
 
-        cv::Mat tVec(3, 1, cv::DataType<double>::type); // Translation vector
+        tVec = cv::Mat(3, 1, cv::DataType<double>::type); // Translation vector
         tVec.at<double>(0) = transform.getOrigin().x();
         tVec.at<double>(1) = transform.getOrigin().y();
         tVec.at<double>(2) = transform.getOrigin().z();
@@ -368,9 +407,9 @@ private:
         tf::StampedTransform transform;
         try{
             tf_listener.waitForTransform("/camera", "/panel",
-                                          ros::Time(0), ros::Duration(3.0));
+                                         ros::Time(0), ros::Duration(3.0));
             tf_listener.lookupTransform("/camera", "/panel",
-                                     ros::Time(0), transform);
+                                        ros::Time(0), transform);
         }
         catch (tf::TransformException ex){
             ROS_ERROR("%s",ex.what());
@@ -380,24 +419,98 @@ private:
     }
 
     //sort wrenches by height
-    geometry_msgs::Pose getRequestedWrenchPose(std::vector<cv::RotatedRect> &wrenches, std_msgs::UInt8 num) {
+    geometry_msgs::Pose getRequestedWrenchPose(std::vector<cv::RotatedRect> &wrenches, int num) {
         std::sort(wrenches.begin(), wrenches.end(), sortByHeigth);
 
-        cv::RotatedRect r = wrenches[num.data - 1];
-        return get3dPose(r.center);
+        cv::RotatedRect r = wrenches[num - 1];
+        //return get3dPose(r.center);
+        return get3dPose(imagePoints[0]);
     }
 
     geometry_msgs::Pose get3dPose(cv::Point2f p) {
         geometry_msgs::Pose pose;
-        //solvePnP
+        //convert 2D image point to 3D world point
+
+
+        std::vector<cv::Vec2d> imagePts;
+        std::vector<cv::Vec2d> idealPts;
+        imagePts.push_back(cv::Vec2d(p.x, p.y));
+
+        cv::undistortPoints(imagePts, idealPts, intrisicMat, distCoeffs);
+
+        const double lambda = 1.0;
+        cv::Mat cameraPt(3, 1, CV_64F);
+        cameraPt.at<double>(0) = idealPts[0][0] * lambda;
+        cameraPt.at<double>(1) = idealPts[1][1] * lambda;
+        cameraPt.at<double>(2) = lambda;
+
+        std::cout << "camera pt : " << cameraPt << std::endl;
+
+        cv::Mat camToWorld = cv::Mat::eye(4, 4, CV_64FC1);
+        tf::Matrix3x3 RotT = rot.transpose();
+
+        //convert tf::Matrix3x3 to cv::Mat
+        cv::Mat RT = cv::Mat(3, 3, CV_64F);
+        for(int i = 0; i < 3; ++i)
+            for(int j = 0; j < 3; ++j)
+                RT.at<double>(j,i) = RotT[j][i];
+
+        cv::Mat tT = -RT * tVec;
+
+        RT.copyTo(camToWorld(cv::Rect_<double>(0, 0, 3, 3)));
+        camToWorld.at<double>(0, 3) = tT.at<double>(0);
+        camToWorld.at<double>(1, 3) = tT.at<double>(1);
+        camToWorld.at<double>(2, 3) = tT.at<double>(2);
+
+        cameraPt.push_back(1.0);
+        cv::Mat worldPt = camToWorld * cameraPt;
+
+        double t = -tT.at<double>(2) / worldPt.at<double>(2);
+        double x = tT.at<double>(0) + t * worldPt.at<double>(0);
+        double y = tT.at<double>(1) + t * worldPt.at<double>(1);
+
+        std::cout << t << " " << x << ", " << y << std::endl;
+        std::cout << tT << std::endl;
+        std::cout << worldPt << std::endl;
+
+
+        //project it back to test
+        tf::StampedTransform transform = getCameraTransform();
+        rot = tf::Matrix3x3(transform.getRotation());
+        tfScalar _r, _p, _y;
+        rot.getRPY(_r, _p, _y);
+
+        tVec = cv::Mat(3, 1, cv::DataType<double>::type); // Translation vector
+        tVec.at<double>(0) = transform.getOrigin().x();
+        tVec.at<double>(1) = transform.getOrigin().y();
+        tVec.at<double>(2) = transform.getOrigin().z();
+
+
+        cv::Mat rVec(3, 1, cv::DataType<double>::type); // Rotation vector
+        rVec.at<double>(0) = 0;
+        rVec.at<double>(1) = _p;
+        rVec.at<double>(2) = 0;
+
+        std::vector<cv::Point3d> objPt;
+        std::vector<cv::Point2d> imgPt;
+        objPt.push_back(cv::Point3d(x, y, 0));
+
+        cv::projectPoints(objPt, rVec, tVec, intrisicMat, distCoeffs, imgPt);
+        std::cout << imgPt[0] << std::endl;
+
+
+
         return pose;
     }
 
     //check length and aspect ratio of detected contours
-    bool isRectValid(cv::RotatedRect r) {
+    bool isRectValid(cv::RotatedRect r, std::vector<cv::Point> contour) {
         float height = cv_ptr->image.rows;
         float wrench_len = roi_height * r.boundingRect().height / height;
         float aspect = r.boundingRect().height / r.boundingRect().width;
+        float area = r.boundingRect().area();
+
+        cv::Moments mu = cv::moments(contour);
 
         for (int i = 0; i < num_wrenches; ++i) {
             //wrench detected should be between 90-110% of actual length
@@ -405,11 +518,19 @@ private:
                     ((wrench_lengths[i] * 0.9) < wrench_len);
 
             //aspect ratio should be between 90-110% of actual ratio
-            bool b_aspect = ((aspect_ratio * 1.1) > aspect) &&
-                    ((aspect_ratio * 0.9) < aspect);
+            bool b_aspect = ((aspect_ratio * 1.3) > aspect) &&
+                    ((aspect_ratio * 0.7) < aspect);
 
-            if(b_len && b_aspect)
+            //area of the rect should be greater than a threshold
+            bool b_area = area > 10000;
+
+            bool b_moments = (0.6 < mu.nu02) && (1.1 > mu.nu02);
+
+            if(b_aspect && b_area && b_moments) {
+                //std::cout << r.boundingRect().size() << " " << r.center << " " << mu.nu02 << std::endl;
+
                 return true;
+            }
         }
         return false;
     }
@@ -456,22 +577,22 @@ private:
 
         objectPoints.push_back(cv::Point3d(0.55, -0.30, 0));
         objectPoints.push_back(cv::Point3d(1.0, -0.30, 0));
-        objectPoints.push_back(cv::Point3d(1.0, -0.65, 0));
-        objectPoints.push_back(cv::Point3d(0.55, -0.65, 0));
+        objectPoints.push_back(cv::Point3d(1.0, -0.57, 0));
+        objectPoints.push_back(cv::Point3d(0.55, -0.57, 0));
 
         //won't need this.. just fancy stuff
         /*objectPoints.push_back(cv::Point3d(0.70, -0.35, 0));
-        objectPoints.push_back(cv::Point3d(0.70, -0.75, 0));
+        objectPoints.push_back(cv::Point3d(0.70, -0.57, 0));
         objectPoints.push_back(cv::Point3d(0.75, -0.35, 0));
-        objectPoints.push_back(cv::Point3d(0.75, -0.75, 0));
+        objectPoints.push_back(cv::Point3d(0.75, -0.57, 0));
         objectPoints.push_back(cv::Point3d(0.80, -0.35, 0));
-        objectPoints.push_back(cv::Point3d(0.80, -0.75, 0));
+        objectPoints.push_back(cv::Point3d(0.80, -0.57, 0));
         objectPoints.push_back(cv::Point3d(0.85, -0.35, 0));
-        objectPoints.push_back(cv::Point3d(0.85, -0.75, 0));
+        objectPoints.push_back(cv::Point3d(0.85, -0.57, 0));
         objectPoints.push_back(cv::Point3d(0.90, -0.35, 0));
-        objectPoints.push_back(cv::Point3d(0.90, -0.75, 0));
+        objectPoints.push_back(cv::Point3d(0.90, -0.57, 0));
         objectPoints.push_back(cv::Point3d(0.95, -0.35, 0));
-        objectPoints.push_back(cv::Point3d(0.95, -0.75, 0));*/
+        objectPoints.push_back(cv::Point3d(0.95, -0.57, 0));*/
     }
 
     //convert from cv::Point2d to geometry_msgs::Point
@@ -544,7 +665,6 @@ private:
         // Apply the Perspective Transform just found to the src image
         warpPerspective(image, rectImage, lambda, rectImage.size());
 
-        rectImage.reshape(rectImage.channels(), 480);
         return rectImage;
     }
 

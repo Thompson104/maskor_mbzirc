@@ -5,5 +5,5 @@
 	<node name="rviz" pkg="rviz" type="rviz" />
 
 	<node pkg="tf" type="static_transform_publisher" name="laser_link" args="0 0 0.75 0 0 0 world laser_mount_link 100"/>
-    <node pkg="tf" type="static_transform_publisher" name="camera_link" args="-0.54 -0.245 0.15 -1.57 0 -1.57 laser camera 100"/>
+    <node pkg="tf" type="static_transform_publisher" name="camera_link" args="-0.55 -0.25 0.22 -1.57 0 -1.57 laser_mount_link camera 100"/>
 </launch>
