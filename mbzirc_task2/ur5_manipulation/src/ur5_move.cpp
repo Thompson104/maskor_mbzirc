@@ -32,7 +32,6 @@ public:
         server_p2p.start();
         server_angle.start();
 
-        std::cout << "move_p2p is active? : " << server_p2p.isActive() << std::endl;
         group = new MoveGroup("ur5_arm");
         group->setPlanningTime(30.0);
         group->setPlannerId("RRTConnectkConfigDefault");
@@ -53,28 +52,57 @@ public:
 
     void execute_line(const ur5_manipulation::MoveLineGoalConstPtr &goal) {
         std_msgs::Int8 status;
-        //geometry_msgs::Pose endPose = goal->endPose;
+
+        geometry_msgs::Pose endPose = goal->endPose;
 
         std::vector<geometry_msgs::Pose> waypoints;
         geometry_msgs::Pose startPose = group->getCurrentPose().pose;
         waypoints.push_back(startPose);
-        geometry_msgs::Pose endPose = startPose;
-        endPose.position.z -= 0.05;
         waypoints.push_back(endPose);
 
         if(executeTrajectory(waypoints)) {
-            //TODO: do the feedback loop here
+            //TODO: do the feedback loop here -- subscribe to one of the following topics
+            //move_group/feedback or result or status, /follow_joint_trajectory/feedback or result or status
+            lineFeedbackLoop();
             std::cout << "move complete!" << std::endl;
 
-            //status.data = res_line.status.SUCCEEDED;
-            //res_line.result.success = status;
-            //server_line.setSucceeded(res_line);
+            res_line.success = 1;
+            server_line.setSucceeded(res_line);
         } else {
-            //status.data = res_line.status.REJECTED;
-            //res_line.result.success = status;
-            //server_line.setAborted(res_line);
+            res_line.success = 0;
+            server_line.setAborted(res_line);
+        }
+    }
+
+    void lineFeedbackLoop() {
+        ros::Rate r(100);
+        bool success = true;
+
+        // start executing the action
+        while(1) {
+            // check that preempt has not been requested by the client
+            if (server_line.isPreemptRequested() || !ros::ok()) {
+                ROS_INFO("%s: Preempted", move_line_action_name.c_str());
+                // set the action state to preempted
+                server_line.setPreempted();
+                success = false;
+                break;
+            }
+            fb_line.currentPose = group->getCurrentPose().pose;
+            //feedback_.sequence.push_back(feedback_.sequence[i] + feedback_.sequence[i-1]);
+            // publish the feedback
+            server_line.publishFeedback(fb_line);
+            // this sleep is not necessary, the sequence is computed at 1 Hz for demonstration purposes
+            r.sleep();
         }
 
+        /*if(success)
+        {
+            result_.sequence = feedback_.sequence;
+            ROS_INFO("%s: Succeeded", action_name_.c_str());
+            // set the action state to succeeded
+            as_.setSucceeded(result_);
+        }*/
     }
 
     void execute_p2p(const ur5_manipulation::MoveP2PGoalConstPtr &goal) {
@@ -89,13 +117,12 @@ public:
         if(success) {
             //TODO: do the feedback loop here, but not absolutely necessary
             group->execute(traj_plan);
-            //status.data = res_p2p.status.SUCCEEDED;
-            //res_p2p.result.success = status;
+
+            res_p2p.success = 1;
             server_p2p.setSucceeded(res_p2p);
         } else {
-            //status.data = res_p2p.status.REJECTED;
-            //res_p2p.result.success = status;
-            //server_p2p.setAborted(res_p2p);
+            res_p2p.success = 0;
+            server_p2p.setAborted(res_p2p);
         }
     }
 
@@ -148,15 +175,15 @@ private:
     ros::NodeHandle nodeHandle;
 
     actionlib::SimpleActionServer<ur5_manipulation::MoveLineAction> server_line; // NodeHandle instance must be created before this line. Otherwise strange error occurs.
-    ur5_manipulation::MoveLineActionFeedback fb_line;
+    ur5_manipulation::MoveLineFeedback fb_line;
     ur5_manipulation::MoveLineResult res_line;
 
     actionlib::SimpleActionServer<ur5_manipulation::MoveP2PAction> server_p2p;
-    ur5_manipulation::MoveP2PActionFeedback fb_p2p;
+    ur5_manipulation::MoveP2PFeedback fb_p2p;
     ur5_manipulation::MoveP2PResult res_p2p;
 
     actionlib::SimpleActionServer<ur5_manipulation::MoveAngleAction> server_angle;
-    ur5_manipulation::MoveAngleActionFeedback fb_angle;
+    ur5_manipulation::MoveAngleFeedback fb_angle;
     ur5_manipulation::MoveAngleResult res_angle;
 
     MoveGroup *group;

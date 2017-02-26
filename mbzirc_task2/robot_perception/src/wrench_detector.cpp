@@ -84,8 +84,8 @@ public:
             transform.setOrigin( tf::Vector3(p2.x, p2.y, p2.z - 0.15) );
             tf::Quaternion q;
             double yaw = atan2(p1.y - p2.y, p1.x - p2.x) - M_PI_2;
-            std::cout << "yaw : " << yaw << std::endl;
-            q.setRPY(-M_PI_2, 0, -M_PI_2 - yaw);
+            //std::cout << "yaw : " << yaw << std::endl;
+            q.setRPY(-M_PI_2, 0, -M_PI_2);
             transform.setRotation(q);
 
             tf_broadcaster->sendTransform(tf::StampedTransform(transform, ros::Time::now(), "laser", "panel"));
@@ -266,7 +266,8 @@ private:
         }
 
         std::vector<cv::RotatedRect> wrenches = processImage(image, req.wrenchNum);
-        if(wrenches.size() != num_wrenches) {
+        //if(wrenches.size() != num_wrenches) {
+        if(wrenches.size() < 1) {
             ROS_INFO("ERROR : Wrenches not detected");
             return false;
         }
@@ -357,15 +358,15 @@ private:
 
     cv::Mat getWrenchROI(geometry_msgs::Transform msgTransform, std::string imageTopic) {
 
-        tf::StampedTransform transform = getCameraTransform();
+        tf::StampedTransform transform = getCameraTransform("camera", "panel");
         rot = tf::Matrix3x3(transform.getRotation());
         tfScalar r, p, y;
         rot.getRPY(r, p, y);
 
         cv::Mat rVec(3, 1, cv::DataType<double>::type); // Rotation vector
-        rVec.at<double>(0) = 0;
+        rVec.at<double>(0) = r;
         rVec.at<double>(1) = p;
-        rVec.at<double>(2) = 0;
+        rVec.at<double>(2) = y;
 
         tVec = cv::Mat(3, 1, cv::DataType<double>::type); // Translation vector
         tVec.at<double>(0) = transform.getOrigin().x();
@@ -377,10 +378,12 @@ private:
         cv::Mat image = getCVImage(imageTopic);
 
         //draw the roi
-        /*line( image, imagePoints[0], imagePoints[1], cv::Scalar(0, 255, 0), 6 );
+        /*
+        line( image, imagePoints[0], imagePoints[1], cv::Scalar(0, 255, 0), 6 );
         line( image, imagePoints[1], imagePoints[2], cv::Scalar(0, 255, 0), 6 );
         line( image, imagePoints[2], imagePoints[3], cv::Scalar(0, 255, 0), 6 );
         line( image, imagePoints[3], imagePoints[0], cv::Scalar(0, 255, 0), 6 );
+
 
         line( image, imagePoints[4], imagePoints[5], cv::Scalar(255, 0, 0), 4 );
         line( image, imagePoints[6], imagePoints[7], cv::Scalar(255, 0, 0), 4 );
@@ -403,12 +406,12 @@ private:
 
     }
 
-    tf::StampedTransform getCameraTransform() {
+    tf::StampedTransform getCameraTransform(std::string parent, std::string child) {
         tf::StampedTransform transform;
         try{
-            tf_listener.waitForTransform("/camera", "/panel",
+            tf_listener.waitForTransform(parent, child,
                                          ros::Time(0), ros::Duration(3.0));
-            tf_listener.lookupTransform("/camera", "/panel",
+            tf_listener.lookupTransform(parent, child,
                                         ros::Time(0), transform);
         }
         catch (tf::TransformException ex){
@@ -423,14 +426,12 @@ private:
         std::sort(wrenches.begin(), wrenches.end(), sortByHeigth);
 
         cv::RotatedRect r = wrenches[num - 1];
-        //return get3dPose(r.center);
-        return get3dPose(imagePoints[0]);
+        return get3dPose(r.center);
     }
 
     geometry_msgs::Pose get3dPose(cv::Point2f p) {
         geometry_msgs::Pose pose;
         //convert 2D image point to 3D world point
-
 
         std::vector<cv::Vec2d> imagePts;
         std::vector<cv::Vec2d> idealPts;
@@ -441,64 +442,32 @@ private:
         const double lambda = 1.0;
         cv::Mat cameraPt(3, 1, CV_64F);
         cameraPt.at<double>(0) = idealPts[0][0] * lambda;
-        cameraPt.at<double>(1) = idealPts[1][1] * lambda;
-        cameraPt.at<double>(2) = lambda;
+        cameraPt.at<double>(1) = idealPts[0][1] * lambda;
+        cameraPt.at<double>(2) = 1;
+        cameraPt.push_back(1.0);
 
-        std::cout << "camera pt : " << cameraPt << std::endl;
+        std::cout << "camera pt : " << cameraPt << " " << imagePts[0] << " " << idealPts[0] << " " << idealPts[1] << std::endl;
 
         cv::Mat camToWorld = cv::Mat::eye(4, 4, CV_64FC1);
-        tf::Matrix3x3 RotT = rot.transpose();
+        tf::StampedTransform _t = getCameraTransform("panel", "camera");
+        tf::Matrix3x3 _r = tf::Matrix3x3(_t.getRotation());
 
-        //convert tf::Matrix3x3 to cv::Mat
-        cv::Mat RT = cv::Mat(3, 3, CV_64F);
+        cv::Mat _R = cv::Mat(3, 3, CV_64F);
         for(int i = 0; i < 3; ++i)
             for(int j = 0; j < 3; ++j)
-                RT.at<double>(j,i) = RotT[j][i];
+                _R.at<double>(j,i) = _r[j][i];
 
-        cv::Mat tT = -RT * tVec;
-
-        RT.copyTo(camToWorld(cv::Rect_<double>(0, 0, 3, 3)));
-        camToWorld.at<double>(0, 3) = tT.at<double>(0);
-        camToWorld.at<double>(1, 3) = tT.at<double>(1);
-        camToWorld.at<double>(2, 3) = tT.at<double>(2);
-
-        cameraPt.push_back(1.0);
+        _R.copyTo(camToWorld(cv::Rect_<double>(0, 0, 3, 3)));
+        camToWorld.at<double>(0, 3) = _t.getOrigin().x();
+        camToWorld.at<double>(1, 3) = _t.getOrigin().y();
+        camToWorld.at<double>(2, 3) = _t.getOrigin().z();
         cv::Mat worldPt = camToWorld * cameraPt;
 
-        double t = -tT.at<double>(2) / worldPt.at<double>(2);
-        double x = tT.at<double>(0) + t * worldPt.at<double>(0);
-        double y = tT.at<double>(1) + t * worldPt.at<double>(1);
+        double t = -worldPt.at<double>(2) / _t.getOrigin().z();
+        double x = t * _t.getOrigin().x() + worldPt.at<double>(0);
+        double y = t * _t.getOrigin().y() + worldPt.at<double>(1);
 
-        std::cout << t << " " << x << ", " << y << std::endl;
-        std::cout << tT << std::endl;
-        std::cout << worldPt << std::endl;
-
-
-        //project it back to test
-        tf::StampedTransform transform = getCameraTransform();
-        rot = tf::Matrix3x3(transform.getRotation());
-        tfScalar _r, _p, _y;
-        rot.getRPY(_r, _p, _y);
-
-        tVec = cv::Mat(3, 1, cv::DataType<double>::type); // Translation vector
-        tVec.at<double>(0) = transform.getOrigin().x();
-        tVec.at<double>(1) = transform.getOrigin().y();
-        tVec.at<double>(2) = transform.getOrigin().z();
-
-
-        cv::Mat rVec(3, 1, cv::DataType<double>::type); // Rotation vector
-        rVec.at<double>(0) = 0;
-        rVec.at<double>(1) = _p;
-        rVec.at<double>(2) = 0;
-
-        std::vector<cv::Point3d> objPt;
-        std::vector<cv::Point2d> imgPt;
-        objPt.push_back(cv::Point3d(x, y, 0));
-
-        cv::projectPoints(objPt, rVec, tVec, intrisicMat, distCoeffs, imgPt);
-        std::cout << imgPt[0] << std::endl;
-
-
+        std::cout << x << ", " << y << std::endl;
 
         return pose;
     }
@@ -556,23 +525,23 @@ private:
     //should read from parameter server?
     void initCameraParams() {
         intrisicMat = cv::Mat(3, 3, cv::DataType<double>::type); // Intrisic matrix
-        intrisicMat.at<double>(0, 0) = 2835.918714;
+        intrisicMat.at<double>(0, 0) = 2841.144719;
         intrisicMat.at<double>(1, 0) = 0;
         intrisicMat.at<double>(2, 0) = 0;
 
         intrisicMat.at<double>(0, 1) = 0;
-        intrisicMat.at<double>(1, 1) = 2833.011084;
+        intrisicMat.at<double>(1, 1) = 2836.957608;
         intrisicMat.at<double>(2, 1) = 0;
 
-        intrisicMat.at<double>(0, 2) = 1367.336906;
-        intrisicMat.at<double>(1, 2) = 1124.028862;
+        intrisicMat.at<double>(0, 2) = 1396.523199;
+        intrisicMat.at<double>(1, 2) = 1119.404720;
         intrisicMat.at<double>(2, 2) = 1;
 
         distCoeffs = cv::Mat(5, 1, cv::DataType<double>::type);   // Distortion vector
-        distCoeffs.at<double>(0) = -0.192941;
-        distCoeffs.at<double>(1) = 0.158813;
-        distCoeffs.at<double>(2) = 0.001327;
-        distCoeffs.at<double>(3) = 0.000015;
+        distCoeffs.at<double>(0) = -0.202081;
+        distCoeffs.at<double>(1) = 0.140908;
+        distCoeffs.at<double>(2) = 0.000522;
+        distCoeffs.at<double>(3) = 0.000769;
         distCoeffs.at<double>(4) = 0;
 
         objectPoints.push_back(cv::Point3d(0.55, -0.30, 0));
@@ -667,9 +636,7 @@ private:
 
         return rectImage;
     }
-
 };
-
 
 int main( int argc, char** argv ) {
     ros::init(argc, argv, "wrench_detector");
