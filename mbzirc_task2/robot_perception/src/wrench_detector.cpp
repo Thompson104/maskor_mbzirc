@@ -84,6 +84,9 @@ public:
             transform.setOrigin( tf::Vector3(p2.x, p2.y, p2.z - 0.15) );
             tf::Quaternion q;
             double yaw = atan2(p1.y - p2.y, p1.x - p2.x) - M_PI_2;
+            std::cout << "panel in laser frame " << p2.x << " " <<
+                         p2.y << " " <<
+                         p2.z - 0.15 << std::endl;
             //std::cout << "yaw : " << yaw << std::endl;
             q.setRPY(-M_PI_2, 0, -M_PI_2);
             transform.setRotation(q);
@@ -413,6 +416,7 @@ private:
                                          ros::Time(0), ros::Duration(3.0));
             tf_listener.lookupTransform(parent, child,
                                         ros::Time(0), transform);
+
         }
         catch (tf::TransformException ex){
             ROS_ERROR("%s",ex.what());
@@ -468,6 +472,22 @@ private:
         double y = t * _t.getOrigin().y() + worldPt.at<double>(1);
 
         std::cout << x << ", " << y << std::endl;
+
+        //transform the point in UR5's frame of ref
+
+        tf::Stamped<tf::Pose> p1, p2;
+        p1.frame_id_ = "panel";
+        p1.setOrigin(tf::Vector3(x, y, 0));
+        tf::Quaternion q;
+        q.setRPY(0, 0, 0);
+        p1.setRotation(q);
+
+        //change the target frame to 'base_link' -- only the sideways component is wrong by about 10cm!
+        tf_listener.transformPose("world", p1, p2);
+        std::cout << "wrench in base_link frame : " << p2.getOrigin().x() << " " <<
+                     p2.getOrigin().y() << " " <<
+                     p2.getOrigin().z() << std::endl;
+
 
         return pose;
     }
