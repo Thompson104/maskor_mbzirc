@@ -13,6 +13,8 @@ find_package(catkin REQUIRED COMPONENTS
   ur_description
   ur_modern_driver
   actionlib_msgs
+  tf
+  pcl_ros
 )
 
 ## System dependencies are found with CMake's conventions

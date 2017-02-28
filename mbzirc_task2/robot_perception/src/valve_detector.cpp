@@ -115,11 +115,13 @@ private:
 
                         pcl::PointXYZ p;
                         if(m2 < 0)
-                            p.x = mid.x - 0.012 / sqrt(1 + m2 * m2);
+                            p.x = mid.x - 0.006 / sqrt(1 + m2 * m2);
                         else
-                            p.x = mid.x + 0.012 / sqrt(1 + m2 * m2);
+                            p.x = mid.x + 0.006 / sqrt(1 + m2 * m2);
                         p.y = (p.x - mid.x)*m2 + mid.y;
                         p.z = 0;//mid.z + 0.012 / sqrt(1 + m2 * m2);
+
+                        std::cout << "mid point : " << mid << " " << p << std::endl;
                     }
 
                     //TODO: if dist != valve width, exclude it
