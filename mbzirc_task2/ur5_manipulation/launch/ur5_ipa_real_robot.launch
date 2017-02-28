@@ -8,5 +8,5 @@
   <include file="$(find ur5_manipulation)/launch/ur5_moveit_planning_execution.launch" />
   <include file="$(find ur5_manipulation)/launch/moveit_rviz.launch" />
 
-  <node pkg="tf" type="static_transform_publisher" name="camera_link" args="0.27 0.27 0.215 1.57 0 -1.57 base_link camera 100"/>
+  <node pkg="tf" type="static_transform_publisher" name="camera_link" args="0.27 0.23 0.215 1.57 0 -1.57 base_link camera 100"/>
 </launch>

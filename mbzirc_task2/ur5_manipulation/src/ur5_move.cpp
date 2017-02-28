@@ -26,7 +26,8 @@ public:
     UR5_Interface(ros::NodeHandle nh) : nodeHandle(nh),
         server_line(nh, move_line_action_name, boost::bind(&UR5_Interface::execute_line, this, _1), false),
         server_p2p(nh, move_p2p_action_name, boost::bind(&UR5_Interface::execute_p2p, this, _1), false),
-        server_angle(nh, move_angle_action_name, boost::bind(&UR5_Interface::execute_angle, this, _1), false){
+        server_angle(nh, move_angle_action_name, boost::bind(&UR5_Interface::execute_angle, this, _1), false),
+        isTrajRunning(false){
 
         server_line.start();
         server_p2p.start();
@@ -40,7 +41,10 @@ public:
         group->setNumPlanningAttempts(5);
         group->setMaxVelocityScalingFactor(0.1);
 
-        traj_client = new TrajClient("/arm_controller/follow_joint_trajectory", true); //Needs the namespace 'arm_controller'?
+        //traj_client = new TrajClient("/follow_joint_trajectory", true); //Needs the namespace 'arm_controller'?
+
+        traj_result_sub = nh.subscribe<control_msgs::FollowJointTrajectoryActionResult>("/follow_joint_trajectory/result", 1, &UR5_Interface::trajectoryResult, this);
+
 
         arm_goal.trajectory.joint_names.push_back("ur5_arm_shoulder_pan_joint");
         arm_goal.trajectory.joint_names.push_back("ur5_arm_shoulder_lift_joint");
@@ -58,6 +62,7 @@ public:
         std::vector<geometry_msgs::Pose> waypoints;
         geometry_msgs::Pose startPose = group->getCurrentPose().pose;
         waypoints.push_back(startPose);
+        endPose.orientation = startPose.orientation;
         waypoints.push_back(endPose);
 
         if(executeTrajectory(waypoints)) {
@@ -66,18 +71,22 @@ public:
             lineFeedbackLoop();
             std::cout << "move complete!" << std::endl;
 
-            res_line.success = 1;
-            server_line.setSucceeded(res_line);
+            //res_line.success = 1;
+            //server_line.setSucceeded(res_line);
         } else {
             res_line.success = 0;
             server_line.setAborted(res_line);
         }
     }
 
+    void trajectoryResult(const control_msgs::FollowJointTrajectoryActionResultConstPtr &result) {
+        isTrajRunning = false;
+    }
+
     void lineFeedbackLoop() {
         ros::Rate r(100);
         bool success = true;
-
+        isTrajRunning = true;
         // start executing the action
         while(1) {
             // check that preempt has not been requested by the client
@@ -87,7 +96,14 @@ public:
                 server_line.setPreempted();
                 success = false;
                 break;
+            } else if(!isTrajRunning) {
+                ROS_INFO("%s: success ", move_line_action_name.c_str());
+                // set the action state to preempted
+                server_line.setSucceeded();
+                success = true;
+                break;
             }
+
             fb_line.currentPose = group->getCurrentPose().pose;
             //feedback_.sequence.push_back(feedback_.sequence[i] + feedback_.sequence[i-1]);
             // publish the feedback
@@ -108,12 +124,14 @@ public:
     void execute_p2p(const ur5_manipulation::MoveP2PGoalConstPtr &goal) {
         std_msgs::Int8 status;
         geometry_msgs::Pose endPose = goal->endPose;
+        endPose.orientation = group->getCurrentPose().pose.orientation;
 
         Plan traj_plan;
         group->setPoseTarget(endPose);
         group->setStartStateToCurrentState();
         bool success = group->plan(traj_plan);
         ROS_INFO("Visualizing plan 1 (pose goal) %s",success?"":"FAILED");
+        std::cout << "pose received : " << endPose << std::endl;
         if(success) {
             //TODO: do the feedback loop here, but not absolutely necessary
             group->execute(traj_plan);
@@ -189,6 +207,10 @@ private:
     MoveGroup *group;
     TrajClient* traj_client;
     control_msgs::FollowJointTrajectoryGoal arm_goal;
+
+    ros::Subscriber traj_result_sub;
+
+    bool isTrajRunning;
 
     bool executeTrajectory(std::vector<geometry_msgs::Pose> waypoints) {
         group->setStartStateToCurrentState();

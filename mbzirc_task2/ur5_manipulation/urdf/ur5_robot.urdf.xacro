@@ -23,6 +23,6 @@
   <joint name="tim_link" type="fixed">
 	<parent link="base_link" />
     <child link = "laser_mount_link" />
-    <origin xyz="-0.28 0 0" rpy="0.0 0.0 3.142" />
+    <origin xyz="-0.28 0.01 0" rpy="0.0 0.0 3.142" />
   </joint>
 </robot>

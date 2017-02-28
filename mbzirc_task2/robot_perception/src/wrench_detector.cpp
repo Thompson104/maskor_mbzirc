@@ -52,6 +52,10 @@ bool sortByHeigth(const cv::RotatedRect &r1, const cv::RotatedRect &r2) {
     return r1.boundingRect().height > r2.boundingRect().height;
 }
 
+bool sortByX(const cv::RotatedRect &r1, const cv::RotatedRect &r2) {
+    return r1.center.x < r2.center.x;
+}
+
 class PanelDetector {
 public:
     PanelDetector(ros::NodeHandle nh) : nodeHandle(nh) {
@@ -192,8 +196,8 @@ public:
 
     WrenchDetector(ros::NodeHandle nh) : nodeHandle(nh), canny_max(255) {
         canny_low = 0;
-        canny_up = 30;
-        dilation_size = 30;
+        canny_up = 25;
+        dilation_size = 20;
         num_wrenches = 6;
         roi_height = 400;
 
@@ -269,8 +273,8 @@ private:
         }
 
         std::vector<cv::RotatedRect> wrenches = processImage(image, req.wrenchNum);
-        //if(wrenches.size() != num_wrenches) {
-        if(wrenches.size() < 1) {
+        if(wrenches.size() != num_wrenches) {
+        //if(wrenches.size() < 1) {
             ROS_INFO("ERROR : Wrenches not detected");
             return false;
         }
@@ -437,6 +441,9 @@ private:
         //cv::RotatedRect r = wrenches[num - 1];
 
         //sort indices to get the order of wrenches on panel
+        std::sort(wrenches.begin(), wrenches.end(), sortByHeigth);
+
+        cv::RotatedRect r = wrenches[num - 1];
 
         std::vector<double> w;
         for (int i = 0; i < wrenches.size(); ++i) {
@@ -448,33 +455,35 @@ private:
             std::cout << wrenches[i].center << " " << w[i] <<  std::endl;
         }
 
-        std::sort(wrenches.begin(), wrenches.end(), sortByHeigth);
-
-
-
-        cv::RotatedRect r = wrenches[num - 1];
+        std::sort(wrenches.begin(), wrenches.end(), sortByX);
+        std::cout << "===" << std::endl;
         for (int i = 0; i < wrenches.size(); ++i) {
             std::cout << wrenches[i].center << " " << w[i] <<  std::endl;
+        }
 
-            if(wrenches[i].center.x == w[i] ) {
+        for (int i = 0; i < wrenches.size(); ++i) {
+            if(r.center.x == wrenches[i].center.x ) {
+                std::cout << i << " " << r.center.x << " " << w[i] <<  std::endl;
+
                 tf::Stamped<tf::Pose> p1, p2;
                 p1.frame_id_ = "panel";
-                p1.setOrigin(tf::Vector3(objectPoints[i + 4].x,
-                             objectPoints[i + 4].y,
-                        objectPoints[i + 4].z));
+                p1.setOrigin(tf::Vector3(objectPoints[i * 2 + 4].x,
+                             objectPoints[i * 2 + 4].y,
+                        objectPoints[i * 2 + 4].z));
+                std::cout << "panel point : " << p1.getOrigin().x() << " " << p1.getOrigin().y() << " " << p1.getOrigin().z() << std::endl;
                 tf::Quaternion q;
                 q.setRPY(0, 0, 0);
                 p1.setRotation(q);
 
                 //change the target frame to 'base_link' -- only the sideways component is wrong by about 10cm!
-                tf_listener.transformPose("world", p1, p2);
+                tf_listener.transformPose("base_link", p1, p2);
                 std::cout << "wrench in base_link frame : " << p2.getOrigin().x() << " " <<
                              p2.getOrigin().y() << " " <<
                              p2.getOrigin().z() << std::endl;
 
-                pose.position.x = p2.getOrigin().x();
+                pose.position.x = -0.45;//p2.getOrigin().x();
                 pose.position.y = p2.getOrigin().y();
-                pose.position.z = p2.getOrigin().z();
+                pose.position.z = 1.015;//p2.getOrigin().z();
             }
         }
         return pose;
