@@ -433,18 +433,19 @@ private:
     //sort wrenches by height
     geometry_msgs::Pose getRequestedWrenchPose(std::vector<cv::RotatedRect> &wrenches, int num) {
         geometry_msgs::Pose pose;
-        std::sort(wrenches.begin(), wrenches.end(), sortByHeigth);
-        cv::RotatedRect r = wrenches[num - 1];
+        //std::sort(wrenches.begin(), wrenches.end(), sortByHeigth);
+        //cv::RotatedRect r = wrenches[num - 1];
 
-        /*
-        std::vector<cv::RotatedRect> w;
+        //sort indices to get the order of wrenches on panel
+
+        std::vector<double> w;
         for (int i = 0; i < wrenches.size(); ++i) {
-            cv::RotatedRect r = wrenches[i];
-            w.push_back(r);
+            double x = wrenches[i].center.x;
+            w.push_back(x);
         }
 
         for (int i = 0; i < wrenches.size(); ++i) {
-            std::cout << wrenches[i].center << " " << w[i].center <<  std::endl;
+            std::cout << wrenches[i].center << " " << w[i] <<  std::endl;
         }
 
         std::sort(wrenches.begin(), wrenches.end(), sortByHeigth);
@@ -453,9 +454,9 @@ private:
 
         cv::RotatedRect r = wrenches[num - 1];
         for (int i = 0; i < wrenches.size(); ++i) {
-            std::cout << wrenches[i].center << " " << w[i].center <<  std::endl;
+            std::cout << wrenches[i].center << " " << w[i] <<  std::endl;
 
-            if(wrenches[i].center.x == w[i].center.x ) {
+            if(wrenches[i].center.x == w[i] ) {
                 tf::Stamped<tf::Pose> p1, p2;
                 p1.frame_id_ = "panel";
                 p1.setOrigin(tf::Vector3(objectPoints[i + 4].x,
@@ -476,7 +477,8 @@ private:
                 pose.position.z = p2.getOrigin().z();
             }
         }
-        return pose;*/
+        return pose;
+        /*
         for (int i = 0; i < wrenches.size(); ++i) {
             cv::RotatedRect r1 = wrenches[i];
             std::cout << i << std::endl;
@@ -484,7 +486,7 @@ private:
             get3dPose(r1.center);
         }
 
-        return get3dPose(r.center);
+        return get3dPose(r.center);*/
     }
 
     geometry_msgs::Pose get3dPose(cv::Point2f p) {
