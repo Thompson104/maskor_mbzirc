@@ -3,11 +3,7 @@
        name="ur5" >
 
   <!-- ur5 -->
-  <xacro:include filename="$(find ur_description)/urdf/ur5.urdf.xacro" />
-
-  <xacro:include filename="$(find sick_tim)/urdf/sick_tim.urdf.xacro" />
-
-  <xacro:sick_tim310 name="laser" ros_topic="scan" />
+  <xacro:include filename="$(find ur5_manipulation)/urdf/ur5.urdf.xacro" />
 
   <!-- arm -->
   <xacro:ur5_robot prefix="" joint_limited="false"/>
@@ -16,13 +12,7 @@
 
   <joint name="world_joint" type="fixed">
     <parent link="world" />
-    <child link = "base_link" />
+    <child link = "ur5_base_link" />
     <origin xyz="0.0 0.0 0.75" rpy="0.0 0.0 0.0" />
-  </joint>
-
-  <joint name="tim_link" type="fixed">
-	<parent link="base_link" />
-    <child link = "laser_mount_link" />
-    <origin xyz="-0.28 0.01 0" rpy="0.0 0.0 3.142" />
   </joint>
 </robot>

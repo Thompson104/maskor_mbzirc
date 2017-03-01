@@ -65,6 +65,7 @@ public:
     }
 
     void execute_task(const moveit_msgs::PickupGoalConstPtr &goal) {
+
         //-----GO HOME!-------------
         geometry_msgs::Pose homePose;
         homePose.position.x = -0.27;
