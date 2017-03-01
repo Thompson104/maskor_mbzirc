@@ -1,4 +1,5 @@
 sensor_msgs/PointCloud2 valveScan
 ---
 geometry_msgs/Pose valvePose
+float64 angle
 

@@ -48,6 +48,8 @@ private:
         int idxPrev = -1;
         std::vector<int> pointIdxRadiusSearch;
         std::vector<float> pointRadiusSquaredDistance;
+        std::vector<pcl::PointXYZ> approachPoints;
+        std::vector<double> approachAngles;
         for (int i = 0; i < cHull_points.size(); ++i) {
             //find indices of the convex hull point
             pcl::PointXYZ searchPoint = cHull_points[i];
@@ -68,7 +70,7 @@ private:
                     }
 
                     //extract each 'edge' of convex hull
-                    if (line_inliers->indices.size () < 100) {
+                    if (line_inliers->indices.size () < 50) {
                         std::cerr << "too less num of points for a line" << std::endl;
                         continue;
                     }
@@ -105,7 +107,8 @@ private:
                     pcl::PointXYZ p2 = cloud_p->points[inliers->indices[inliers->indices.size() - 1]];
                     float d = dist(p1, p2);
 
-                    if(d > 0.01 || d < 0.014) {     //TODO: add param
+                    //Calculate reach pt, approach pt and angle
+                    if(d > 0.01 && d < 0.014) {     //TODO: add param -- valve thickness
                         //find 'entry point'
                         float m2 = -coefficients->values[3] / coefficients->values[4];//slope of perpendicular
                         pcl::PointXYZ mid;
@@ -113,15 +116,30 @@ private:
                         mid.y = (p1.y + p2.y) / 2.0;
                         mid.z = (p1.z + p2.z) / 2.0;
 
-                        pcl::PointXYZ p;
-                        if(m2 < 0)
-                            p.x = mid.x - 0.006 / sqrt(1 + m2 * m2);
-                        else
-                            p.x = mid.x + 0.006 / sqrt(1 + m2 * m2);
-                        p.y = (p.x - mid.x)*m2 + mid.y;
-                        p.z = 0;//mid.z + 0.012 / sqrt(1 + m2 * m2);
+                        pcl::PointXYZ reachPt, approachPt;
+                        if(m2 < 0) {
+                            reachPt.x = mid.x - 0.006 / sqrt(1 + m2 * m2);
+                            approachPt.x = mid.x - 0.05 / sqrt(1 + m2 * m2);
+                        }
+                        else {
+                            reachPt.x = mid.x + 0.006 / sqrt(1 + m2 * m2);
+                            approachPt.x = mid.x + 0.05 / sqrt(1 + m2 * m2);
+                        }
+                        reachPt.y = (reachPt.x - mid.x)*m2 + mid.y;
+                        reachPt.z = 0;//mid.z + 0.012 / sqrt(1 + m2 * m2);
 
-                        std::cout << "mid point : " << mid << " " << p << std::endl;
+                        approachPt.y = (approachPt.x - mid.x)*m2 + mid.y;
+                        approachPt.z = 0;
+
+                        double y1 = std::max(reachPt.y, approachPt.y);
+                        double y2 = std::min(reachPt.y, approachPt.y);
+                        double angle = (y1 - y2) / std::sqrt((reachPt.x - approachPt.x) * (reachPt.x - approachPt.x) * (y1 - y2) * (y1 - y2));
+
+                        std::cout << "mid point : " << mid << " " << reachPt << " " << approachPt << " " << angle << std::endl;
+
+                        approachPoints.push_back(reachPt);
+                        approachPoints.push_back(approachPt);
+                        approachAngles.push_back(angle);
                     }
 
                     //TODO: if dist != valve width, exclude it

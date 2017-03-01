@@ -481,7 +481,7 @@ private:
                              p2.getOrigin().y() << " " <<
                              p2.getOrigin().z() << std::endl;
 
-                pose.position.x = -0.45;//p2.getOrigin().x();
+                pose.position.x = p2.getOrigin().x();
                 pose.position.y = p2.getOrigin().y();
                 pose.position.z = 1.015;//p2.getOrigin().z();
             }

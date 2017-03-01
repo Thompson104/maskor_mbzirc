@@ -124,6 +124,11 @@ void trajResultCB(const control_msgs::FollowJointTrajectoryActionResultConstPtr 
         cloud->points[i].y = valve_scan[i].y;
     }
 
+    std::cout << "cloud size : " << cloud->size() << std::endl;
+
+    //save point cloud
+    pcl::io::savePCDFileASCII ("/home/ros/test_pcd.pcd", *cloud);
+
     //Call the valve detection service
     sensor_msgs::PointCloud2 cloudMsg;
     cloudMsg.header.stamp = ros::Time::now();
@@ -162,7 +167,6 @@ int main (int argc, char **argv) {
     ros::ServiceClient wrench_client = nh.serviceClient<robot_perception::GetWrenchPose>("get_wrench_pose");
     valve_client = nh.serviceClient<robot_perception::GetValvePose>("get_valve_pose");
 
-    /*
     //-----GO HOME!-------------
     geometry_msgs::Pose homePose;
     homePose.position.x = -0.27;
@@ -189,27 +193,27 @@ int main (int argc, char **argv) {
     }
 
     //go to approach pose
-    sendP2PGoal(pose);
+    geometry_msgs::Pose approach = pose;
+    approach.position.x += 0.1;
+    sendP2PGoal(approach);
 
     //pick
-    pose.position.x -= 0.08;
-    sendLineGoal(pose, true);
-    pose.position.x += 0.08;
-    sendLineGoal(pose, true);
+    approach.position.x -= 0.04;
+    sendLineGoal(approach, true);
+    approach.position.x += 0.04;
+    sendLineGoal(approach, true);
 
     sendP2PGoal(homePose);
 
-    //get valve pose -- as service
-    */
+    //valve scan
+    geometry_msgs::Pose valvePose;
+    valvePose.position.x = -0.4;
+    valvePose.position.y = -0.24;
+    valvePose.position.z = 1.01;
+    sendP2PGoal(valvePose);
+    valvePose.position.y -= 0.08;
+    sendLineGoal(valvePose, false);
 
-
-
-    geometry_msgs::Pose pose;
-    pose.position.x = -0.49;
-    pose.position.y = -0.36;
-    pose.position.z = 1.0;
-
-    sendLineGoal(pose, false);
     odmini_sub = nh.subscribe<std_msgs::Float64>("/od_mini", 1, odmini_cb);
     ros::Subscriber traj_result_sub = nh.subscribe<control_msgs::FollowJointTrajectoryActionResult>("/follow_joint_trajectory/result", 1, trajResultCB);
 

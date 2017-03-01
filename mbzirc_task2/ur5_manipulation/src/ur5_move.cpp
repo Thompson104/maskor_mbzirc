@@ -233,7 +233,7 @@ private:
         // Thrid create a IterativeParabolicTimeParameterization object
         trajectory_processing::IterativeParabolicTimeParameterization iptp;
         // Fourth compute computeTimeStamps
-        bool success = iptp.computeTimeStamps(rt, 0.01);
+        bool success = iptp.computeTimeStamps(rt, 0.005);
         ROS_INFO("Computed time stamp %s",success?"SUCCEDED":"FAILED");
         // Get RobotTrajectory_msg from RobotTrajectory
         rt.getRobotTrajectoryMsg(trajectory);
