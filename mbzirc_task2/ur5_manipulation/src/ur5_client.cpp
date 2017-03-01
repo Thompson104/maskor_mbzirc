@@ -78,7 +78,7 @@ public:
             //Get wrench pose
             robot_perception::GetWrenchPose getPose;
             getPose.request.imageTopic = "/camera/image_rect";
-            getPose.request.scanTopic = "/scan";
+            getPose.request.scanTopic = "/scan_top";
             getPose.request.wrenchNum = 2;
 
             wrench_client.call(getPose);
@@ -90,7 +90,8 @@ public:
                     pose.position.z == 0) {
 
                 std::cerr << "UR5 client : Invalid wrench pose" << std::endl;
-                //return -1;
+                server_task.setAborted();
+                return;
             }
 
             //go to approach pose
@@ -108,12 +109,24 @@ public:
 
             //valve scan
             geometry_msgs::Pose valvePose;
-            valvePose.position.x = -0.4;
-            valvePose.position.y = -0.24;
-            valvePose.position.z = 1.01;
-            sendP2PGoal(valvePose);
-            valvePose.position.y -= 0.08;
-            sendLineGoal(valvePose, false);
+            valvePose = getPose.response.valvePose;
+            if(valvePose.position.x == 0 &&
+                    valvePose.position.y == 0 &&
+                    valvePose.position.z == 0) {
+
+                std::cerr << "UR5 client : Invalid valve pose" << std::endl;
+                //server_task.setAborted();
+                server_task.setAborted(); // delete this!
+                return;
+            }
+
+            approach = valvePose;
+            approach.position.x += 0.1;
+            approach.position.y += 0.04;
+            sendP2PGoal(approach);
+
+            approach.position.y -= 0.08;
+            sendLineGoal(approach, false);
 
             odmini_sub = nodeHandle.subscribe<std_msgs::Float64>("/od_mini", 1, boost::bind(&TaskManager::odmini_cb, this, _1));
             ros::Subscriber traj_result_sub = nodeHandle.subscribe<control_msgs::FollowJointTrajectoryActionResult>("/follow_joint_trajectory/result", 1, boost::bind(&TaskManager::trajResultCB, this, _1));
@@ -126,9 +139,9 @@ public:
                     break;
                 ros::spinOnce();
             }
-            valvePose = getValvePose();
 
             //call P2P, line and rotate
+            server_task.setSucceeded();
         }
     }
 
@@ -199,8 +212,8 @@ private:
 
         try{
             //pick
-            tf_listener->waitForTransform("/base_link", "odmini_link", ros::Time(0), ros::Duration(10.0));
-            tf_listener->lookupTransform("/base_link", "odmini_link", ros::Time(0), transform);
+            tf_listener->waitForTransform("/ur5_base_link", "odmini_link", ros::Time(0), ros::Duration(10.0));
+            tf_listener->lookupTransform("/ur5_base_link", "odmini_link", ros::Time(0), transform);
 
 
             pcl::PointXY p;

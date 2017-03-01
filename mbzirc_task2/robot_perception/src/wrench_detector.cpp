@@ -95,7 +95,7 @@ public:
             q.setRPY(-M_PI_2, 0, M_PI_2 + yaw);
             transform.setRotation(q);
 
-            tf_broadcaster->sendTransform(tf::StampedTransform(transform, ros::Time::now(), "laser", "panel"));
+            tf_broadcaster->sendTransform(tf::StampedTransform(transform, ros::Time::now(), "laser_link_top", "panel"));
             tf::transformTFToMsg(transform, t);
         }
         return t;
@@ -124,7 +124,7 @@ private:
     void visualizePanelLine(geometry_msgs::Point p1, geometry_msgs::Point p2) {
         //draw line in rviz
         visualization_msgs::Marker lines;
-        lines.header.frame_id = "laser";
+        lines.header.frame_id = "laser_link_top";
         lines.header.stamp = ros::Time::now();
         lines.action = visualization_msgs::Marker::ADD;
         lines.pose.orientation.w = 1.0;
@@ -228,6 +228,8 @@ private:
     std::vector<cv::Point3d> objectPoints;
     std::vector<cv::Point2d> imagePoints;
 
+    cv::Point3d valvePoint;
+
     //Wrench ROI detection
     //Not the best way, but need to save the header
     //and the encoding for the response image
@@ -281,6 +283,7 @@ private:
 
         //mark this wrench in the image probably?
         res.wrenchPose = getRequestedWrenchPose(wrenches, req.wrenchNum);
+        res.valvePose = getValvePose();
         return true;
     }
 
@@ -434,6 +437,30 @@ private:
         return transform;
     }
 
+    geometry_msgs::Pose getValvePose() {
+        tf::Stamped<tf::Pose> p1, p2;
+        p1.frame_id_ = "panel";
+        p1.setOrigin(tf::Vector3(valvePoint.x,
+                     valvePoint.y,
+                valvePoint.z));
+        std::cout << "panel point : " << p1.getOrigin().x() << " " << p1.getOrigin().y() << " " << p1.getOrigin().z() << std::endl;
+        tf::Quaternion q;
+        q.setRPY(0, 0, 0);
+        p1.setRotation(q);
+
+        //change the target frame to 'base_link' -- only the sideways component is wrong by about 10cm!
+        tf_listener.transformPose("ur5_base_link", p1, p2);
+        std::cout << "wrench in base_link frame : " << p2.getOrigin().x() << " " <<
+                     p2.getOrigin().y() << " " <<
+                     p2.getOrigin().z() << std::endl;
+
+        geometry_msgs::Pose pose;
+        pose.position.x = p2.getOrigin().x();
+        pose.position.y = p2.getOrigin().y();
+        pose.position.z = 1.01;//p2.getOrigin().z();
+        return pose;
+    }
+
     //sort wrenches by height
     geometry_msgs::Pose getRequestedWrenchPose(std::vector<cv::RotatedRect> &wrenches, int num) {
         geometry_msgs::Pose pose;
@@ -476,7 +503,7 @@ private:
                 p1.setRotation(q);
 
                 //change the target frame to 'base_link' -- only the sideways component is wrong by about 10cm!
-                tf_listener.transformPose("base_link", p1, p2);
+                tf_listener.transformPose("ur5_base_link", p1, p2);
                 std::cout << "wrench in base_link frame : " << p2.getOrigin().x() << " " <<
                              p2.getOrigin().y() << " " <<
                              p2.getOrigin().z() << std::endl;
@@ -550,7 +577,7 @@ private:
         p1.setRotation(q);
 
         //change the target frame to 'base_link' -- only the sideways component is wrong by about 10cm!
-        tf_listener.transformPose("base_link", p1, p2);
+        tf_listener.transformPose("ur5_base_link", p1, p2);
         //std::cout << "wrench in base_link frame : " << p2.getOrigin().x() << " " <<
         //             p2.getOrigin().y() << " " <<
         //             p2.getOrigin().z() << std::endl;
@@ -651,6 +678,8 @@ private:
         objectPoints.push_back(cv::Point3d(0.90, -0.55, 0));
         objectPoints.push_back(cv::Point3d(0.95, -0.30, 0));
         objectPoints.push_back(cv::Point3d(0.95, -0.55, 0));
+
+        valvePoint = cv::Point3d(0.35, -0.35, 0);
     }
 
     //convert from cv::Point2d to geometry_msgs::Point

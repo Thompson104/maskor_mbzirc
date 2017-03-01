@@ -3,4 +3,5 @@ string imageTopic
 string scanTopic
 ---
 geometry_msgs/Pose wrenchPose
+geometry_msgs/Pose valvePose
 
