@@ -64,7 +64,6 @@ public:
     }
 
     geometry_msgs::Transform getPanelOrigin(std::string topic) {
-        geometry_msgs::Point p1, p2;
         tf::Transform transform;
         geometry_msgs::Transform t;
 
@@ -85,14 +84,14 @@ public:
 
         if(isLineValid(p1, p2)) {
             visualizePanelLine(p1, p2);
-            transform.setOrigin( tf::Vector3(p2.x, p2.y, p2.z - 0.15) );
+            transform.setOrigin( tf::Vector3(p2.x, p2.y, p2.z - 0.15) ); //TODO: recheck the height
             tf::Quaternion q;
-            double yaw = atan2(p1.y - p2.y, p1.x - p2.x) - M_PI_2;
+            yaw = atan2(p1.y - p2.y, p1.x - p2.x);
             std::cout << "panel in laser frame " << p2.x << " " <<
                          p2.y << " " <<
                          p2.z - 0.15 << std::endl;
             //std::cout << "yaw : " << yaw << std::endl;
-            q.setRPY(-M_PI_2, 0, M_PI_2 + yaw);
+            q.setRPY(-M_PI_2, 0, yaw);
             transform.setRotation(q);
 
             tf_broadcaster->sendTransform(tf::StampedTransform(transform, ros::Time::now(), "laser_link_top", "panel"));
@@ -101,9 +100,21 @@ public:
         return t;
     }
 
+    void getPanelEndPoints(geometry_msgs::Point &p1, geometry_msgs::Point &p2) {
+        p1 = this->p1;
+        p2 = this->p2;
+    }
+
+    double getYaw() {
+        return this->yaw;
+    }
+
 private:
     ros::NodeHandle nodeHandle;
     laser_geometry::LaserProjection projector_;
+
+    geometry_msgs::Point p1, p2;
+    double yaw;
 
     ros::Publisher marker_pub;
     tf::TransformBroadcaster *tf_broadcaster;
@@ -266,17 +277,23 @@ private:
             return false;
         }
 
+        geometry_msgs::Point p1, p2;
+        panelDetector->getPanelEndPoints(p1, p2);
+        res.p1 = p1;
+        res.p2 = p2;
+        res.yaw = panelDetector->getYaw();
+
         cv::Mat image = getWrenchROI(transform, req.imageTopic);
-        cv::imwrite("roi.png", image);
 
         if(image.rows == 0 || image.cols == 0){
             ROS_INFO("ERROR : Wrench ROI is does not lie in the image");
             return false;
         }
+        cv::imwrite("roi.png", image);
 
         std::vector<cv::RotatedRect> wrenches = processImage(image, req.wrenchNum);
         if(wrenches.size() != num_wrenches) {
-        //if(wrenches.size() < 1) {
+            //if(wrenches.size() < 1) {
             ROS_INFO("ERROR : Wrenches not detected");
             return false;
         }
@@ -287,14 +304,53 @@ private:
         return true;
     }
 
+    double median( cv::Mat channel ){
+        double m = (channel.rows*channel.cols) / 2;
+        int bin = 0;
+        double med = -1.0;
+
+        int histSize = 256;
+        float range[] = { 0, 256 };
+        const float* histRange = { range };
+        bool uniform = true;
+        bool accumulate = false;
+        cv::Mat hist;
+        cv::calcHist( &channel, 1, 0, cv::Mat(), hist, 1, &histSize, &histRange, uniform, accumulate );
+
+        for ( int i = 0; i < histSize && med < 0.0; ++i )
+        {
+            bin += cvRound( hist.at< float >( i ) );
+            if ( bin > m && med < 0.0 )
+                med = i;
+        }
+
+        return med;
+    }
+
     std::vector<cv::RotatedRect> processImage(cv::Mat img, int num) {
         cv::Mat edge, imgLaplacian, drawing;
+        cv::Mat blurImage, edge1, edge2, cedge;
         drawing = img.clone();
 
         std::vector<cv::RotatedRect> wrenches;
         std::vector<std::vector<cv::Point> > contours;
         std::vector<cv::Vec4i> hierarchy;
 
+        cv::blur(img, blurImage, cv::Size(3,3));
+
+        double v = median(blurImage);
+        double sigma = 0.33;
+        int lower = int(std::max(0.0, (1.0 - sigma) * v));
+        int upper = int(std::min(255.0, (1.0 + sigma) * v));
+
+        // Run the edge detector on grayscale
+        Canny(blurImage, edge1, lower, upper, 3);
+        cedge = cv::Scalar::all(0);
+
+        img.copyTo(cedge, edge1);
+        //imwrite("canny.png", cedge);
+
+        /*
         cv::Mat kernel = (cv::Mat_<float>(3,3) <<
                           1, 0, 1,
                           1, -6, 1,
@@ -318,14 +374,16 @@ private:
 
         cv::GaussianBlur( img, edge, cv::Size(15, 15), 0, 0 );
         cv::Canny(edge, edge, canny_low, canny_up);
+        */
 
         cv::Mat element = cv::getStructuringElement(cv::MORPH_RECT,
                                                     cv::Size( 2*dilation_size + 1, 2*dilation_size+1 ),
                                                     cv::Point( dilation_size, dilation_size ) );
         /// Apply the dilation operation
-        cv::morphologyEx(edge, edge, cv::MORPH_CLOSE, element );
+        cv::morphologyEx(cedge, cedge, cv::MORPH_CLOSE, element );
+        cvtColor(cedge, edge, CV_RGB2GRAY);
         //cv::namedWindow("Canny", CV_WINDOW_NORMAL);
-        cv::imwrite("Canny.png", edge);
+        cv::imwrite("morph.png", edge);
 
         // Find contours
         cv::findContours( edge, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, cv::Point(0, 0) );
@@ -370,7 +428,6 @@ private:
     }
 
     cv::Mat getWrenchROI(geometry_msgs::Transform msgTransform, std::string imageTopic) {
-
         tf::StampedTransform transform = getCameraTransform("camera", "panel");
         rot = tf::Matrix3x3(transform.getRotation());
         tfScalar r, p, y;
@@ -441,13 +498,15 @@ private:
         tf::Stamped<tf::Pose> p1, p2;
         p1.frame_id_ = "panel";
         p1.setOrigin(tf::Vector3(valvePoint.x,
-                     valvePoint.y,
-                valvePoint.z));
+                                 valvePoint.y,
+                                 valvePoint.z));
         std::cout << "panel point : " << p1.getOrigin().x() << " " << p1.getOrigin().y() << " " << p1.getOrigin().z() << std::endl;
+
         tf::Quaternion q;
         q.setRPY(0, 0, 0);
         p1.setRotation(q);
 
+        /*
         //change the target frame to 'base_link' -- only the sideways component is wrong by about 10cm!
         tf_listener.transformPose("ur5_base_link", p1, p2);
         std::cout << "wrench in base_link frame : " << p2.getOrigin().x() << " " <<
@@ -457,7 +516,16 @@ private:
         geometry_msgs::Pose pose;
         pose.position.x = p2.getOrigin().x();
         pose.position.y = p2.getOrigin().y();
-        pose.position.z = 1.01;//p2.getOrigin().z();
+        pose.position.z = p2.getOrigin().z();
+        pose.orientation.w = p2.getRotation().getW();
+        pose.orientation.x = p2.getRotation().getX();
+        pose.orientation.y = p2.getRotation().getY();
+        pose.orientation.z = p2.getRotation().getZ();
+        */
+        geometry_msgs::Pose pose;
+        pose.position.x = p1.getOrigin().x();
+        pose.position.y = p1.getOrigin().y();
+        pose.position.z = p1.getOrigin().z();
         return pose;
     }
 
@@ -502,6 +570,7 @@ private:
                 q.setRPY(0, 0, 0);
                 p1.setRotation(q);
 
+                /*
                 //change the target frame to 'base_link' -- only the sideways component is wrong by about 10cm!
                 tf_listener.transformPose("ur5_base_link", p1, p2);
                 std::cout << "wrench in base_link frame : " << p2.getOrigin().x() << " " <<
@@ -510,7 +579,17 @@ private:
 
                 pose.position.x = p2.getOrigin().x();
                 pose.position.y = p2.getOrigin().y();
-                pose.position.z = 1.015;//p2.getOrigin().z();
+                pose.position.z = p2.getOrigin().z();
+                pose.orientation.w = p2.getRotation().getW();
+                pose.orientation.x = p2.getRotation().getX();
+                pose.orientation.y = p2.getRotation().getY();
+                pose.orientation.z = p2.getRotation().getZ();
+                */
+                pose.position.x = p1.getOrigin().x();
+                pose.position.y = p1.getOrigin().y();
+                pose.position.z = p1.getOrigin().z();
+
+                break;
             }
         }
         return pose;
@@ -679,7 +758,7 @@ private:
         objectPoints.push_back(cv::Point3d(0.95, -0.30, 0));
         objectPoints.push_back(cv::Point3d(0.95, -0.55, 0));
 
-        valvePoint = cv::Point3d(0.35, -0.35, 0);
+        valvePoint = cv::Point3d(0.345, -0.375, 0);
     }
 
     //convert from cv::Point2d to geometry_msgs::Point

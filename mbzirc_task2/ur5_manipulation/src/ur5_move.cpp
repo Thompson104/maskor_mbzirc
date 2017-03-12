@@ -41,10 +41,9 @@ public:
         group->setNumPlanningAttempts(5);
         group->setMaxVelocityScalingFactor(0.1);
 
-        //traj_client = new TrajClient("/follow_joint_trajectory", true); //Needs the namespace 'arm_controller'?
+        traj_client = new TrajClient("/follow_joint_trajectory", true); //Needs the namespace 'arm_controller'?
 
         traj_result_sub = nh.subscribe<control_msgs::FollowJointTrajectoryActionResult>("/follow_joint_trajectory/result", 1, &UR5_Interface::trajectoryResult, this);
-
 
         arm_goal.trajectory.joint_names.push_back("ur5_arm_shoulder_pan_joint");
         arm_goal.trajectory.joint_names.push_back("ur5_arm_shoulder_lift_joint");
@@ -58,6 +57,7 @@ public:
         std_msgs::Int8 status;
 
         geometry_msgs::Pose endPose = goal->endPose;
+        double vel_scale = goal->velScaleFactor;
 
         std::vector<geometry_msgs::Pose> waypoints;
         geometry_msgs::Pose startPose = group->getCurrentPose().pose;
@@ -65,7 +65,7 @@ public:
         endPose.orientation = startPose.orientation;
         waypoints.push_back(endPose);
 
-        if(executeTrajectory(waypoints)) {
+        if(executeTrajectory(waypoints, vel_scale)) {
             //TODO: do the feedback loop here -- subscribe to one of the following topics
             //move_group/feedback or result or status, /follow_joint_trajectory/feedback or result or status
             lineFeedbackLoop();
@@ -212,7 +212,7 @@ private:
 
     bool isTrajRunning;
 
-    bool executeTrajectory(std::vector<geometry_msgs::Pose> waypoints) {
+    bool executeTrajectory(std::vector<geometry_msgs::Pose> waypoints, double vel_scale) {
         group->setStartStateToCurrentState();
         moveit_msgs::RobotTrajectory trajectory;
 
@@ -233,7 +233,7 @@ private:
         // Thrid create a IterativeParabolicTimeParameterization object
         trajectory_processing::IterativeParabolicTimeParameterization iptp;
         // Fourth compute computeTimeStamps
-        bool success = iptp.computeTimeStamps(rt, 0.005);
+        bool success = iptp.computeTimeStamps(rt, vel_scale);
         ROS_INFO("Computed time stamp %s",success?"SUCCEDED":"FAILED");
         // Get RobotTrajectory_msg from RobotTrajectory
         rt.getRobotTrajectoryMsg(trajectory);

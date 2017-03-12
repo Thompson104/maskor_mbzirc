@@ -1,5 +1,6 @@
 #goal definition
 geometry_msgs/Pose endPose
+float64 velScaleFactor
 ---
 #result definition
 int8 success

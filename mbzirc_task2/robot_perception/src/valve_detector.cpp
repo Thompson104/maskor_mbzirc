@@ -26,7 +26,7 @@ private:
     ros::ServiceServer service;
 
     bool getValvePose(robot_perception::GetValvePose::Request  &req,
-                       robot_perception::GetValvePose::Response &res) {
+                      robot_perception::GetValvePose::Response &res) {
 
 
         pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
@@ -131,14 +131,12 @@ private:
                         approachPt.y = (approachPt.x - mid.x)*m2 + mid.y;
                         approachPt.z = 0;
 
-                        double y1 = std::max(reachPt.y, approachPt.y);
-                        double y2 = std::min(reachPt.y, approachPt.y);
-                        double angle = (y1 - y2) / std::sqrt((reachPt.x - approachPt.x) * (reachPt.x - approachPt.x) * (y1 - y2) * (y1 - y2));
+                        double angle = (reachPt.x - approachPt.x) / (reachPt.y - approachPt.y);
+                        int dir = angle / fabs(angle);
+                        angle = dir * atan(fabs(angle));
 
-                        std::cout << "mid point : " << mid << " " << reachPt << " " << approachPt << " " << angle << std::endl;
-
-                        approachPoints.push_back(reachPt);
                         approachPoints.push_back(approachPt);
+                        approachPoints.push_back(reachPt);
                         approachAngles.push_back(angle);
                     }
 
@@ -150,6 +148,29 @@ private:
             }
         }
 
+        double minAngle = 1000;
+        int minIdx = 0;
+        for (int i = 0; i < approachAngles.size(); ++i) {
+            double angle = approachAngles.at(i);
+            if(fabs(angle) < minAngle) {
+                minAngle = angle;
+                minIdx = i;
+            }
+        }
+
+        std::cout << "approach selected : " << approachPoints.at(2 * minIdx) << " " << approachPoints.at(2 * minIdx + 1) << " " << minAngle << std::endl;
+        res.angle = minAngle;
+        res.valveReach = pclPointToGeomMsgPose(approachPoints.at(2 * minIdx + 1));
+        res.valveApproach = pclPointToGeomMsgPose(approachPoints.at(2 * minIdx));
+
+    }
+
+    geometry_msgs::Pose pclPointToGeomMsgPose(pcl::PointXYZ p) {
+        geometry_msgs::Pose pose;
+        pose.position.x = p.x;
+        pose.position.y = p.y;
+        pose.position.z = p.z;
+        return pose;
     }
 
     float dist(pcl::PointXYZ p1, pcl::PointXYZ p2) {

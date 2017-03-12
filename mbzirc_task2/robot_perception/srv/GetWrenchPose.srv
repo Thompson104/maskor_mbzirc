@@ -4,4 +4,7 @@ string scanTopic
 ---
 geometry_msgs/Pose wrenchPose
 geometry_msgs/Pose valvePose
+geometry_msgs/Point p1
+geometry_msgs/Point p2
+float64 yaw
 
